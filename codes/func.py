@@ -20,7 +20,7 @@ def cmask(array,radius,fill=1):
     """
     nx,ny = array.shape
     if nx%2 or ny%2:
-        raise ValueError('Array dimensions have to be odd')
+        raise ValueError('Array dimensions should be even')
     
     a , b = (nx-1)/2, (ny-1)/2 ## centroid
     y , x = np.ogrid[-a:nx-a,-b:ny-b]
