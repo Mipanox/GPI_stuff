@@ -5,3 +5,4 @@ from matplotlib.colors import LogNorm
 import astropy.units as u
 from astropy.utils.data import get_readable_fileobj
 from astropy.io import fits
+from scipy.ndimage.interpolation import shift
