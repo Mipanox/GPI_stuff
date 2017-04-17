@@ -30,6 +30,8 @@ def cmask(array,radius,fill=1):
     arr[mask] = fill
     return arr
 
+#############
+## Amp Pha ##
 def Ef_after(Amp,Pha):
     """ 
     Complex Fourier Transformed wave (phasor).
@@ -50,7 +52,47 @@ def Ef_after(Amp,Pha):
     E_fin = np.fft.fftshift(E_aft)
     
     return E_fin
+
+def Ef_idft(Amp,Pha):
+    """ 
+    Complex inverse Fourier Transformed wave (phasor).
     
+    Inputs:
+    - Amp, Pha: numpy 2d arrays.
+      The amplitude and phase distributions of the FTed wave
+    """
+    try:
+        if Pha.unit != 'rad':
+            Pha = Pha.to(u.rad)
+    except:
+        raise TypeError("Please specify unit")
+        
+    E_ori = Amp * np.exp(1j*Pha.value)
+    
+    E_sht = np.fft.ifftshift(E_ori)
+    E_aft = np.fft.ifft2(E_sht)
+    
+    return E_aft
+
+###############
+## Ef <-> Ef ##
+def Ef_aft_from_Ef(Ef):
+    """ Wrap up for phasor transformations """
+    Amp, Pha = Ef_to_AP(Ef)
+    return Ef_after(Amp,Pha)
+    
+def Ef_ift_from_Ef(Ef):
+    """ Wrap up for phasor transformations """
+    Amp, Pha = Ef_to_AP(Ef)
+    return Ef_idft(Amp,Pha)
+
+###############
+def Ef_to_AP(Ef):
+    """ 
+    Convert a complex phasor to amplitude and phase 
+    """
+    return abs(Ef), np.arctan2(Ef.imag,Ef.real) * u.rad
+
 def Int_after(Amp,Pha):
     """ 
     Intensity after FT given amplitude and phase.
@@ -61,9 +103,3 @@ def Int_after(Amp,Pha):
     
     Int_fin = Int_fi_/np.max(Int_fi_)
     return Int_fin
-
-def Ef_to_AP(Ef):
-    """ 
-    Convert a complex phasor to amplitude and phase 
-    """
-    return abs(Ef), np.arctan2(Ef.imag,Ef.real) * u.rad
