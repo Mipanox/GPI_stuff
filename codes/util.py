@@ -43,7 +43,7 @@ def pad_zeros(array,N_pix):
         return vector
     
     ## assumed square shape
-    padded = np.lib.pad(pri_d, int((N_pix-array.shape[0])/2), padwithtens)
+    padded = np.lib.pad(array, int((N_pix-array.shape[0])/2), padwithtens)
     return padded
 
 ############################
