@@ -87,7 +87,6 @@ def zoomArray(inArray, finalShape, sameSum=False, **zoomKwargs):
         rescaled /= extraSize
     return rescaled
 
-
 ############################
 def expand_array(array):
     """
