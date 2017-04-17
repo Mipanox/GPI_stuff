@@ -31,20 +31,62 @@ def grad_phase_x(bounds,N_pix):
     gd = np.linspace(low,high,N_pix)
     return np.broadcast_to(gd,(N_pix,N_pix))
 
-def pad_zeros(array,N_pix):
+def pad_array(array,N_pix,pad=0):
     """
     Pad an array to size of N_pix x N_pix
+    
+    Parameters
+    - pad: float
+      The value to be padded
     """
     ### see numpy document: 
     #-- https://docs.scipy.org/doc/numpy/reference/generated/numpy.pad.html
     def padwithtens(vector, pad_width, iaxis, kwargs):
-        vector[:pad_width[0]] = 0
-        vector[-pad_width[1]:] = 0
+        vector[:pad_width[0]] = pad
+        vector[-pad_width[1]:] = pad
         return vector
     
     ## assumed square shape
     padded = np.lib.pad(array, int((N_pix-array.shape[0])/2), padwithtens)
     return padded
+
+def zoomArray(inArray, finalShape, sameSum=False, **zoomKwargs):
+    """
+    Reshape an array to a new size by upscaling first using interpolation
+    and then block averaging to the desired size.
+    
+    Reference:
+    - http://stackoverflow.com/questions/34122012/python-downsample-2d-numpy-array-by-a-non-integer-factor
+    """
+    from scipy.ndimage import zoom
+    inArray = np.asarray(inArray, dtype = np.double)
+    inShape = inArray.shape
+    assert len(inShape) == len(finalShape)
+    mults = []
+    for i in range(len(inShape)):
+        if finalShape[i] < inShape[i]:
+            mults.append(int(np.ceil(inShape[i]/finalShape[i])))
+        else:
+            mults.append(1)
+    tempShape = tuple([i * j for i,j in zip(finalShape, mults)])
+
+    zoomMultipliers = np.array(tempShape) / np.array(inShape) + 0.0000001
+    rescaled = zoom(inArray, zoomMultipliers, **zoomKwargs)
+
+    for ind, mult in enumerate(mults):
+        if mult != 1:
+            sh = list(rescaled.shape)
+            assert sh[ind] % mult == 0
+            newshape = sh[:ind] + [sh[ind] / mult, mult] + sh[ind+1:]
+            rescaled.shape = newshape
+            rescaled = np.mean(rescaled, axis = ind+1)
+    assert rescaled.shape == finalShape
+
+    if sameSum:
+        extraSize = np.prod(finalShape) / np.prod(inShape)
+        rescaled /= extraSize
+    return rescaled
+
 
 ############################
 def expand_array(array):
