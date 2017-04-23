@@ -1,6 +1,8 @@
 """
 Functions dealing with Fourier optics
 """
+import numpy as np
+import astropy.units as u
 
 def cmask(array,radius,fill=1):
     """

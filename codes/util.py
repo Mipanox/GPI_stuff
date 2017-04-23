@@ -1,8 +1,11 @@
 """
 Utility functions not directly relevant for computations.
 """
+import numpy as np
 
 def read_fits(filepath):
+    from astropy.utils.data import get_readable_fileobj
+    from astropy.io import fits
     with get_readable_fileobj(filepath, cache=True) as e:
         fitsfile = fits.open(e)
         data     = fitsfile[0].data
@@ -11,6 +14,7 @@ def read_fits(filepath):
     return data, header
 
 def grad_phase_x(bounds,Npix):
+    import astropy.units as u
     """
     Generate a uniform (tip/tilt) phase in the x-direction.
     
@@ -23,6 +27,7 @@ def grad_phase_x(bounds,Npix):
       The desired size of the array.
       Should be identical to those of the masks
     """
+    
     try:
         low, high = (bounds[0].to(u.rad)).value, \
                     (bounds[1].to(u.rad)).value
