@@ -13,11 +13,11 @@ Bands:
  
 // Note: APLC stands for "Apodized Pupil Lyot Coronagraph"
  
-(Last updated: 04/22/2017)
+(Last modified: 04/23/2017)
 """
 from __future__ import division
 import sys
-sys.path.append("../codes/")
+sys.path.append("./codes/")
 
 import time
 import numpy as np
@@ -84,6 +84,15 @@ class APLC_sim(object):
         self.lyo_p = pad_array(self.lyo_d,self.N_pix)
         
     def run(self):
+        """
+        Run the simulation. 
+        - `inc` : incident light before apodization
+        - `apo` : after apodization
+        - `coro`: masked by focal plane mask
+        - `2pup`: second pupil plane = IFTed `coro`
+        - `lyo` : applying Lyot stop
+        - `final`: final image. Namely `lyo` FTed.
+        """
         One = np.ones((self.N_pix,self.N_pix))
         Zer = np.zeros((self.N_pix,self.N_pix))
         
@@ -249,7 +258,7 @@ def plot_stage(star,planet,extent,limit,log=False,clim=None):
         plt.imshow(S_int,origin='lower',extent=(low,high,low,high)); 
         plt.xlim(low_,high_); plt.ylim(low_,high_); plt.colorbar(); plt.xlabel('m/arcsec') 
     
-        plt.subplot(122); plt.title('Planet Phase (rad)')
+        plt.subplot(122); plt.title('Planet Intensity')
         plt.imshow(P_int,origin='lower',extent=(low,high,low,high)); 
         plt.xlim(low_,high_); plt.ylim(low_,high_); plt.colorbar(); plt.xlabel('m/arcsec')
         
@@ -260,7 +269,7 @@ def plot_stage(star,planet,extent,limit,log=False,clim=None):
             plt.imshow(S_int,origin='lower',extent=(low,high,low,high),norm=LogNorm()); 
             plt.xlim(low_,high_); plt.ylim(low_,high_); plt.colorbar(); plt.clim(clim) 
     
-            plt.subplot(122); plt.title('Planet Phase (rad)'); plt.xlabel('m/arcsec')
+            plt.subplot(122); plt.title('Planet Intensity'); plt.xlabel('m/arcsec')
             plt.imshow(P_int,origin='lower',extent=(low,high,low,high),norm=LogNorm()); 
             plt.xlim(low_,high_); plt.ylim(low_,high_); plt.colorbar(); plt.clim(clim)
         else:
@@ -269,7 +278,7 @@ def plot_stage(star,planet,extent,limit,log=False,clim=None):
             plt.imshow(S_int,origin='lower',extent=(low,high,low,high),norm=LogNorm()); 
             plt.xlim(low_,high_); plt.ylim(low_,high_); plt.colorbar() 
     
-            plt.subplot(122); plt.title('Planet Phase (rad)'); plt.xlabel('m/arcsec')
+            plt.subplot(122); plt.title('Planet Intensity'); plt.xlabel('m/arcsec')
             plt.imshow(P_int,origin='lower',extent=(low,high,low,high),norm=LogNorm()); 
             plt.xlim(low_,high_); plt.ylim(low_,high_); plt.colorbar()
 
