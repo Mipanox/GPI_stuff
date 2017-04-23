@@ -93,7 +93,7 @@ class APLC_sim(object):
         Str_pha = Zer * self.pri_p * u.rad
 
         #-- planet
-        Pnt_amp = One * self.pri_p * self.pnt_contrast
+        Pnt_amp = One * self.pri_p * self.pnt_contrast**0.5
         
         p_shift = (self.D_tel*self.pnt_sep).to(u.nm*u.rad).value
         tilt    =  (p_shift*u.nm/self.wavelength).to(u.dimensionless_unscaled) \
@@ -184,18 +184,18 @@ class APLC_sim(object):
     #############
     def plot_mask(self):
         plt.figure(figsize=(24,24))
-        plt.subplot(221); plt.title('Spiders')
+        plt.subplot(221); plt.title('Spiders'); plt.xlabel('m')
         plt.imshow(self.pri_d,origin='lower',
                    extent=(self.px_min,self.px_max,self.py_min,self.py_max))
-        plt.subplot(222); plt.title('Apodizer')
+        plt.subplot(222); plt.title('Apodizer'); plt.xlabel('m')
         plt.imshow(self.apo_d,origin='lower',
                    extent=(self.px_min,self.px_max,self.py_min,self.py_max),
                    cmap=plt.get_cmap('Oranges'))
-        plt.subplot(223); plt.title('Focal plane mask')
+        plt.subplot(223); plt.title('Focal plane mask'); plt.xlabel('arcsec')
         plt.imshow(self.fpm_d,origin='lower',
                    extent=(self.kx_min,self.kx_max,self.ky_min,self.ky_max),
                    cmap=plt.get_cmap('viridis'))
-        plt.subplot(224); plt.title('Lyot stop')
+        plt.subplot(224); plt.title('Lyot stop'); plt.xlabel('m')
         plt.imshow(self.lyo_d,origin='lower',
                    extent=(self.px_min,self.px_max,self.py_min,self.py_max),
                    cmap=plt.get_cmap('winter'))
