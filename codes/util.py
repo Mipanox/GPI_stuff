@@ -10,7 +10,7 @@ def read_fits(filepath):
         
     return data, header
 
-def grad_phase_x(bounds,N_pix):
+def grad_phase_x(bounds,Npix):
     """
     Generate a uniform (tip/tilt) phase in the x-direction.
     
@@ -19,8 +19,9 @@ def grad_phase_x(bounds,N_pix):
       The lower and upper bounds of the phase 'difference'
       at the edges of the aperture
       
-    - N_pix: integer
-      The desired size of the array
+    - Npix: integer
+      The desired size of the array.
+      Should be identical to those of the masks
     """
     try:
         low, high = (bounds[0].to(u.rad)).value, \
@@ -28,8 +29,8 @@ def grad_phase_x(bounds,N_pix):
     except:
         raise TypeError("Please specify unit")
     
-    gd = np.linspace(low,high,N_pix)
-    return np.broadcast_to(gd,(N_pix,N_pix))
+    gd = np.linspace(low,high,Npix)
+    return np.broadcast_to(gd,(Npix,Npix))
 
 def pad_array(array,N_pix,pad=0):
     """
@@ -41,13 +42,13 @@ def pad_array(array,N_pix,pad=0):
     """
     ### see numpy document: 
     #-- https://docs.scipy.org/doc/numpy/reference/generated/numpy.pad.html
-    def padwithtens(vector, pad_width, iaxis, kwargs):
+    def padwith(vector, pad_width, iaxis, kwargs):
         vector[:pad_width[0]] = pad
         vector[-pad_width[1]:] = pad
         return vector
     
     ## assumed square shape
-    padded = np.lib.pad(array, int((N_pix-array.shape[0])/2), padwithtens)
+    padded = np.lib.pad(array, int((N_pix-array.shape[0])/2), padwith)
     return padded
 
 def zoomArray(inArray, finalShape, sameSum=False, **zoomKwargs):

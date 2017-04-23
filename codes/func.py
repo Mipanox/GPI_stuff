@@ -30,6 +30,25 @@ def cmask(array,radius,fill=1):
     arr[mask] = fill
     return arr
 
+def find_peak_atR(array,radius,median=False):
+    """
+    Peak value at a given radius (from the center; in pixel)
+    """
+    Nx, Ny = array.shape
+    ctx, cty = (Nx-1)/2, (Ny-1)/2
+        
+    ## maximally there are ~ 2(Nx+Ny) pixels at the circumference
+    Npix = 2*(Nx+Ny)
+    theta = np.linspace(0,2*np.pi,Npix)
+    
+    ## find the peak in the annulus
+    X, Y = (radius*np.cos(theta)+ctx).astype(int), \
+           (radius*np.sin(theta)+cty).astype(int)
+    
+    if median==False:
+        return np.max(array[X,Y])
+    else: return np.median(array[X,Y])
+
 #############
 ## Amp Pha ##
 def Ef_after(Amp,Pha):
