@@ -137,6 +137,10 @@ class APLC_sim(object):
         self.Pnt_final_ef = Ef_aft_from_Ef(self.Pnt_lyo_ef)
         tt_ni_1 = time.time()
         print 'Done final image plane. It took me {0:.3f} s'.format(tt_ni_1-tt_ni_0)
+        
+        ## combined
+        self.cb_final_ef  = self.Str_final_ef+self.Pnt_final_ef
+        self.cb_final_int = abs(self.cb_final_ef)**2
       
     #############
     def _setParameters(self,f_pixs,p_pixs):
@@ -199,6 +203,38 @@ class APLC_sim(object):
         plt.imshow(self.lyo_d,origin='lower',
                    extent=(self.px_min,self.px_max,self.py_min,self.py_max),
                    cmap=plt.get_cmap('winter'))
+        
+    def contrast(self):
+        """
+        Peak and annular contrast calculations
+        """
+        Str_final_int = abs(self.Str_final_ef)**2
+        ## Peak flux of the star PSF
+        Str_pk_flux = np.max(Str_final_int)
+
+        ## Peak/Median flux at given radii (")
+        radius = np.linspace(0,2,101)/self.k_pix_arc.value
+        
+        ## annular median value
+        Str_ann_pk_int = []
+        Str_ann_md_int = []
+        for r in radius:
+            Str_ann_pk_int.append(find_peak_atR(Str_final_int,r))
+            Str_ann_md_int.append(find_peak_atR(Str_final_int,r,median=True))
+
+        ## Peak planet intensity
+        Pnt_peak_int = np.max(abs(self.Pnt_final_ef)**2 / self.pnt_contrast)
+
+        ##
+        print 'Star   peak int. = {0:.2e}'.format(Str_pk_flux)
+        print 'Planet peak int. = {0:.2e}'.format(Pnt_peak_int)
+        print ''
+        print 'Contrast at zero radius = {0:.2e}'.format(Str_pk_flux/Pnt_peak_int)
+        
+        self.contrast_peak = Str_pk_flux/Pnt_peak_int
+        ## lists
+        self.contrast_pk = radius*self.k_pix_arc.value,Str_ann_pk_int/Pnt_peak_int
+        self.contrast_md = radius*self.k_pix_arc.value,Str_ann_md_int/Pnt_peak_int
         
 def plot_stage(star,planet,extent,limit,log=False,clim=None):
     S_int = abs(star)**2
