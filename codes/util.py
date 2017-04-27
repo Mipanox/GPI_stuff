@@ -93,6 +93,24 @@ def zoomArray(inArray, finalShape, sameSum=False, **zoomKwargs):
         rescaled /= extraSize
     return rescaled
 
+def fullcmask(array,pad=0):
+    """
+    Variation of `cmask`, with radius equal to Npix.
+    """
+    nx,ny = array.shape
+    if nx%2 or ny%2:
+        raise ValueError('Array dimensions should be even')
+    
+    a , b = (nx-1)/2, (ny-1)/2 ## centroid
+    y , x = np.ogrid[-a:nx-a,-b:ny-b]
+        
+    radius = a
+    mask = x*x + y*y > radius**2
+        
+    arr = np.copy(array)
+    arr[mask] = pad
+    return arr
+
 ############################
 def expand_array(array):
     """
