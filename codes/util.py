@@ -111,6 +111,22 @@ def fullcmask(array,pad=0):
     arr[mask] = pad
     return arr
 
+def Idxcmask(array,pad=0):
+    """
+    The mask indices for fullcmask
+    """
+    nx,ny = array.shape
+    if nx%2 or ny%2:
+        raise ValueError('Array dimensions should be even')
+    
+    a , b = (nx-1)/2, (ny-1)/2 ## centroid
+    y , x = np.ogrid[-a:nx-a,-b:ny-b]
+        
+    radius = a
+    mask = x*x + y*y > radius**2
+    
+    return np.where(mask)
+
 ############################
 def expand_array(array):
     """

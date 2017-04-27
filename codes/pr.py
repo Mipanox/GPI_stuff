@@ -17,8 +17,13 @@ plt.rcParams['ytick.labelsize'] = 18
 def PR_ER(image,threshold=5e-3,init='random'):
     """
     Error reduction with full aperture. 
+    
     First guess is determined by the amplitude of 
     IFTed image + `init` phase.
+    
+    Object-domain constraints:
+    - Support: defined by the aperture
+    - Positivity: replace negative pixels with zeros
     
     Inputs
     - image: np.2darray
@@ -53,9 +58,12 @@ def PR_ER(image,threshold=5e-3,init='random'):
     
     err_list = []
     while err > threshold:
+        ## Object-domain constraints
+        pup[pup<0] = 0
         foc = fullcmask(fftshift(fft2(pup*np.exp(1j*pha))))
         pha = fullcmask(np.arctan2(foc.imag,foc.real))
-        pup = fullcmask(ifft2(ifftshift(img*np.exp(1j*pha)))) ## Fourier constraint
+        ## Fourier constraint
+        pup = fullcmask(ifft2(ifftshift(img*np.exp(1j*pha)))) 
         pha = fullcmask(np.arctan2(pup.imag,pup.real))
         
         ## error (intensity) computed in pupil plane
@@ -70,12 +78,100 @@ def PR_ER(image,threshold=5e-3,init='random'):
         ## maximal iteration
         if i >= 2000:
             break
-            
+    print '-----------------------'
+    print 'Initial Error: {0:.2e}'.format(err_list[0])
     print 'Final step : {0}'.format(i)
     print 'Final Error: {0:.2e}'.format(err)
         
     return pup, foc
 
+def PR_HIO(image,beta,threshold=1e-3,init='random',max_iter=2000):
+    """
+    Hybrid Input-Output algorithm
+    First guess is determined by the amplitude of 
+    IFTed image + `init` phase.
+    
+    Object-domain "outside the support":
+    - Outside of aperture
+    - Negative pixels
+    
+    Inputs
+    - image: np.2darray
+      The true "intensity" of the focal plane image.
+      
+    Parameters
+    - beta: float
+      The scaling of HIO correction.
+      
+    Options
+    - max_iter: integer
+      Maximal number of iterations
+      Defaults to 2000.
+    """
+    ## intensity to amplitude
+    img = np.sqrt(image)
+    
+    ## initialize error and phase
+    err = 1e10
+    if init=='random':
+        pha = fullcmask(np.random.random(img.shape) * 2*np.pi)
+    elif init=='uniform':
+        pha = fullcmask(np.ones(img.shape))
+    else:
+        raise NameError('No such method. Use "random" or "uniform"')
+    
+    ## initial guess
+    pup = fullcmask(ifft2(ifftshift(img*np.exp(1j*pha))))
+    pup_ = abs(pup)
+    pup_old = pup
+    
+    ## initial states
+    plt.figure(figsize=(16,8))
+    plt.subplot(121); plt.imshow(pup_,origin='lower')
+    plt.title('Initial guess Amplitude')
+    plt.subplot(122); plt.imshow(pha,origin='lower')
+    plt.title('Initial Phase'); plt.show()
+    
+    ##
+    i = 1
+    img_sum = np.sum(img)
+    
+    err_list = []
+    while err > threshold:
+        pup_old = pup
+        
+        foc = fullcmask(fftshift(fft2(pup*np.exp(1j*pha))))
+        pha = fullcmask(np.arctan2(foc.imag,foc.real))
+        ## Fourier constraint, update 'inside support'
+        pup = fullcmask(ifft2(ifftshift(img*np.exp(1j*pha)))) 
+        pha = fullcmask(np.arctan2(pup.imag,pup.real))
+        
+        ## outside of support
+        osp_idx = Idxcmask(pup)
+        neg_idx = (pup < 0)
+        
+        ## HIO
+        pup[osp_idx] = pup_old[osp_idx]-beta*pup[osp_idx]
+        pup[neg_idx] = pup_old[neg_idx]-beta*pup[neg_idx]
+        
+        ## error (intensity) computed in pupil plane
+        #-- defined as rms error / sum of true input image
+        err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
+        i += 1
+        if i%100==0:
+            print 'Current step : {0}'.format(i)
+            print '        Error: {0:.2e}'.format(err)
+        
+        err_list.append(err)
+        ## maximal iteration
+        if i >= max_iter:
+            break
+    print '-----------------------'
+    print 'Initial Error: {0:.2e}'.format(err_list[0])
+    print 'Final step : {0}'.format(i)
+    print 'Final Error: {0:.2e}'.format(err)
+        
+    return pup, foc
 
 ##################################################################
 def plot_true(pupil,focus):
@@ -152,4 +248,4 @@ def plot_phase_residual(tru_img,rec_img):
     plt.imshow(abs(residual),origin='lower',cmap='gray')
     clb = plt.colorbar()
     clb.ax.set_title('rad')
-    print 'rms residual error (in phase) = {0:.2f} %'.format(np.sqrt(np.sum(residual**2))/np.sum(tru_pha)*100)
+    print 'rms residual error (in phase) = {0:.2f} %'.format(np.sqrt(np.sum(residual**2))/abs(np.sum(tru_pha))*100)
