@@ -9,6 +9,7 @@ References
 
 from __future__ import division
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Zernike(object):
     """
@@ -18,10 +19,16 @@ class Zernike(object):
     
     def __init__(self,Z1=0,Z2=0,Z3=0,Z4=0,Z5=0,
                       Z6=0,Z7=0,Z8=0,Z9=0,Z10=0,
-                      Z11=0,Z12=0,Z13=0,Z14=0,Z15=0,Npix=1024):
+                      Z11=0,Z12=0,Z13=0,Z14=0,Z15=0,Npix=1024,
+                 coeff=None):
         ## coefficients
-        self.coeff = [Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, 
-                      Z9, Z10, Z11, Z12, Z13, Z14, Z15]
+        if coeff is not None:
+            if len(coeff) != 15:
+                raise IndexError('Length of coefficient list should be 15')
+            self.coeff = coeff
+        else:
+            self.coeff = [Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, 
+                          Z9, Z10, Z11, Z12, Z13, Z14, Z15]
         ## grid size
         self.Npix = Npix
         
@@ -46,7 +53,8 @@ class Zernike(object):
         if plot==True:
             X = r*np.cos(u)
             Y = r*np.sin(u)
-        
+            
+            plt.figure(figsize=(10,10))
             plt.pcolormesh(X, Y, Z_cb)
             
         return Z_cb
@@ -70,6 +78,7 @@ class Zernike(object):
         Z_ap = self.cmask(Z_cb)
         
         if plot==True:
+            plt.figure(figsize=(10,10))
             plt.pcolormesh(X, Y, Z_ap)
             
         return Z_ap

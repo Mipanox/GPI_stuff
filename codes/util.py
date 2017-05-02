@@ -45,6 +45,8 @@ def pad_array(array,N_pix,pad=0):
     - pad: float
       The value to be padded
     """
+    if (N_pix-array.shape[0]) < 2: 
+        raise ValueError('N_pix must be at least greater than the original array dimension by 2')
     ### see numpy document: 
     #-- https://docs.scipy.org/doc/numpy/reference/generated/numpy.pad.html
     def padwith(vector, pad_width, iaxis, kwargs):
