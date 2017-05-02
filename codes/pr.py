@@ -1,6 +1,7 @@
 """
-Functions for phase retrieval.
+Phase retrieval.
 """
+
 import sys
 sys.path.append("../codes/")
 
@@ -9,245 +10,172 @@ import numpy as np
 from util import *
 from zernike import *
 
-plt.rcParams['axes.titlesize'] = 20
-plt.rcParams['axes.labelsize'] = 20
-plt.rcParams['xtick.labelsize'] = 18
-plt.rcParams['ytick.labelsize'] = 18
-
-def PR_ER(image,threshold=5e-3,init='random'):
+def true_imgs(Npix,coeff1,coeff2,
+              max_aberA=0.2,max_aberP=0.2):
     """
-    Error reduction with full aperture. 
-    
-    First guess is determined by the amplitude of 
-    IFTed image + `init` phase.
-    
-    Object-domain constraints:
-    - Support: defined by the aperture
-    - Positivity: replace negative pixels with zeros
+    Generate true images (both domains)
+    for a given size in combined Zernike modes
     
     Inputs
-    - image: np.2darray
-      The true "intensity" of the focal plane image.
-    """
-    ## intensity to amplitude
-    img = np.sqrt(image)
-    
-    ## initialize error and phase
-    err = 1e10
-    if init=='random':
-        pha = np.random.random(img.shape) * 2*np.pi
-    elif init=='uniform':
-        pha = np.ones(img.shape)
-    else:
-        raise NameError('No such method. Use "random" or "uniform"')
-    
-    ## initial guess
-    pup = fullcmask(ifft2(ifftshift(img*np.exp(1j*pha))))
-    pup_ = abs(pup)
-    
-    ## initial states
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(pup_,origin='lower')
-    plt.title('Initial guess Amplitude')
-    plt.subplot(122); plt.imshow(pha,origin='lower')
-    plt.title('Initial Phase'); plt.show()
-    
-    ##
-    i = 1
-    img_sum = np.sum(img)
-    
-    err_list = []
-    while err > threshold:
-        ## Object-domain constraints
-        pup[pup<0] = 0
-        pup = fullcmask(pup)
-        ##
-        foc = fftshift(fft2(pup*np.exp(1j*pha)))
-        pha = np.arctan2(foc.imag,foc.real)
-        ## Fourier constraint
-        pup = ifft2(ifftshift(img*np.exp(1j*pha))) 
-        pha = np.arctan2(pup.imag,pup.real)
-        
-        ## error (mag) computed in pupil plane
-        #-- defined as rms error / sum of true input image
-        err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
-        i += 1
-        if i%100==0:
-            print 'Current step : {0}'.format(i)
-            print '        Error: {0:.2e}'.format(err)
-        
-        err_list.append(err)
-        ## maximal iteration
-        if i >= 2000:
-            break
-    print '-----------------------'
-    print 'First iteration error: {0:.2e}'.format(err_list[0])
-    print 'Final step : {0}'.format(i)
-    print 'Final Error: {0:.2e}'.format(err)
-        
-    return pup, foc
-
-def PR_HIO(image,beta,threshold=1e-3,init='random',max_iter=2000):
-    """
-    Hybrid Input-Output algorithm
-    First guess is determined by the amplitude of 
-    IFTed image + `init` phase.
-    
-    Object-domain "outside the support":
-    - Outside of aperture
-    - Negative pixels
-    
-    Inputs
-    - image: np.2darray
-      The true "intensity" of the focal plane image.
+    - Npix: integer
+      Size of the images (assumed symmetric)
+    - coeff1, coeff2: lists of floats
+      Coefficients of the Zernike modes for the
+      object and Fourier domain images respectively
       
     Parameters
-    - beta: float
-      The scaling of HIO correction.
-      
-    Options
-    - max_iter: integer
-      Maximal number of iterations
-      Defaults to 2000.
+    - max_aberA, max_aberP: positive floats
+      Maximum variations of the aberration in
+      amplitude and phase respectively
     """
-    ## intensity to amplitude
-    img = np.sqrt(image)
+    ## set up object domain (pupil plane) image
+    zerP = Zernike(coeff=coeff1,Npix=Npix)
+    zerF = Zernike(coeff=coeff2,Npix=Npix)
     
-    ## initialize error and phase
-    err = 1e10
-    if init=='random':
-        pha = np.random.random(img.shape) * 2*np.pi
-    elif init=='uniform':
-        pha = np.ones(img.shape)
-    else:
-        raise NameError('No such method. Use "random" or "uniform"')
-    
-    ## initial guess
-    pup = fullcmask(ifft2(ifftshift(img*np.exp(1j*pha))))
-    pup_ = abs(pup)
-    
-    ## initial states
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(pup_,origin='lower')
-    plt.title('Initial guess Amplitude')
-    plt.subplot(122); plt.imshow(pha,origin='lower')
-    plt.title('Initial Phase'); plt.show()
-    
-    ##
-    i = 1
-    img_sum = np.sum(img)
-    
-    err_list = []
-    while err > threshold:
-        pup_old = pup
-        
-        foc = fftshift(fft2(pup*np.exp(1j*pha)))
-        pha = np.arctan2(foc.imag,foc.real)
-        ## Fourier constraint, update 'inside support'
-        pup = ifft2(ifftshift(img*np.exp(1j*pha))) 
-        pha = np.arctan2(pup.imag,pup.real)
-        
-        ## outside of support
-        osp_idx = Idxcmask(pup)
-        neg_idx = (pup < 0)
-        
-        ## HIO
-        pup[osp_idx] = pup_old[osp_idx]-beta*pup[osp_idx]
-        pup[neg_idx] = pup_old[neg_idx]-beta*pup[neg_idx]
-        
-        ## error (mag) computed in pupil plane
-        #-- defined as rms error / sum of true input image
-        err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
-        i += 1
-        if i%100==0:
-            print 'Current step : {0}'.format(i)
-            print '        Error: {0:.2e}'.format(err)
-        
-        err_list.append(err)
-        ## maximal iteration
-        if i >= max_iter:
-            break
-    print '-----------------------'
-    print 'First iteration error: {0:.2e}'.format(err_list[0])
-    print 'Final step : {0}'.format(i)
-    print 'Final Error: {0:.2e}'.format(err)
-        
-    return pup, foc
+    Pamp = abs(zerP.crCartAber(plot=False))
+    Ppha = zerF.crCartAber(plot=False)
 
-##################################################################
-def plot_true(pupil,focus):
-    A = abs(pupil)
-    Apha = np.arctan2(pupil.imag,pupil.real)
-    B = abs(focus)
-    Bpha = np.arctan2(focus.imag,focus.real)
+    #-- maximum
+    Pamp *= max_aberA
+    Ppha *= max_aberP
     
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(A,origin='lower')
-    plt.title('Amplitude - Pupil (linear)')
-    plt.subplot(122); plt.imshow(B,origin='lower',norm=LogNorm())
-    plt.title('Amplitude - Focal plane (log)')
-    plt.colorbar();
-    plt.show()
+    Pamp += fullcmask(np.ones((Npix,Npix)))
+    Ppha += fullcmask(np.ones((Npix,Npix)))
     
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(Apha,origin='lower')
-    plt.title('Phase - Pupil')
-    plt.subplot(122); plt.imshow(Bpha,origin='lower')
-    plt.title('Phase - Focal plane')
-    plt.show()
-    
-def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
-    ## true
-    A = abs(true_pup)
-    Apha = np.arctan2(true_pup.imag,true_pup.real)
-    B = abs(true_foc)
-    Bpha = np.arctan2(true_foc.imag,true_foc.real)
-    
-    ## reconstructed
-    rec_pup = abs(rec_pup_)
-    rec_puppha = np.arctan2(rec_pup_.imag,rec_pup_.real)
-    rec_foc = abs(rec_foc_)
-    rec_focpha = np.arctan2(rec_foc_.imag,rec_foc_.real)
-    
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(A,origin='lower')
-    plt.title('Amplitude - True pupil image'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_pup,origin='lower')
-    plt.title('Amplitude - Reconstructed'); plt.colorbar()
-    plt.show()
+    P_ = Pamp*np.exp(1j*Ppha)
+    P  = abs(P_)**2
 
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(Apha,origin='lower')
-    plt.title('Phase - True pupil image'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_puppha,origin='lower')
-    plt.title('Phase - Reconstructed'); plt.colorbar()
-    plt.show()
+    ## Fourier domain image
+    F_rec = np.fft.fftshift(np.fft.fft2(P_))
+    F_ = F_rec
+    Famp = abs(F_)
+    Fpha = np.arctan2(F_.imag,F_.real)
+    F = Famp**2
     
-    ###
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(B,origin='lower',norm=LogNorm())
-    plt.title('Amplitude - True focal image (log)'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_foc,origin='lower',norm=LogNorm())
-    plt.title('Amplitude - Reconstructed (log)'); plt.colorbar()
-    plt.show()
+    return P,P_,F,F_
 
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(Bpha,origin='lower')
-    plt.title('Phase - True focal image'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_focpha,origin='lower')
-    plt.title('Phase - Reconstructed'); plt.colorbar()
-    plt.show()
+class PR(object):
+    def __init__(self,foc,pup=None,oversamp=1,
+                 support='circular',
+                 true_foc=None,true_pup=None):
+        """
+        Default to single-image case
+        
+        Inputs
+        - Foc: np.2darray
+          The focal plane (Fourier domain) image
+          Only intensity
+          
+        Parameters
+        - oversamp: float (ideally integer)
+          The oversampling (zero-padding) rate,
+          defined by the total grid size divided
+          by the image diameter
+          
+        Options
+        - support: string
+          Choice of support. The input image(s) should 
+          have been masked by the same support.
+          Defaults to 'circular'
+          -- 'circular': circular aperture with diameter
+                         the same size as the image
+          -- 
+        - pup: np.2darray
+          The intensity of the pupil plane 
+          (object domain) image. Only used when 
+          running with the original Gerchberg-Saxton
+          two-image algorithm
+        - true_foc, true_pup: np.2darray
+          The full (complex) TRUE images
+          Displayed when calling `plot_recon`
+          
+        """
+        
+        self.npix  = foc.shape[0]
+        self.N_pix = self.npix * oversamp
+        
+        ## images
+        self.foc_ = foc
+        self.pup  = pup
+        self.true_foc = true_foc
+        self.true_pup = true_pup
+        
+        ## support
+        self.supp = support
+        supp_temp = self._gen_supp()
+        
+        ## padding / oversampling
+        if (self.N_pix-self.npix) > 2:
+            self.foc     = pad_array(foc,self.N_pix)
+            self.support = pad_array(supp_temp,self.N_pix)
+            
+        else:
+            self.foc     = foc
+            self.support = supp_temp
+            print 'The image is not extended due to insufficient oversampling.'
+        
+    def GS(self):
+        """
+        Original two-image Gerchberg-Saxton algorithm
+        """
+        if self.pup is None:
+            raise NameError('Please provide pupil plane (object domain) intensity')
+        
+        
+        
+    def ER(self):
+        if self.pup is not None:
+            print 'Caution: Pupil image is not used for constraints.'
+            print '         This is one-image process.'
+        
+    def HIO(self):
+        if self.pup is not None:
+            print 'Caution: Pupil image is not used for constraints.'
+            print '         This is one-image process.'
+            
+    #############################        
+    def _gen_supp(self):
+        if self.supp == 'circular':
+            return Idxcmask(self.foc_)
+        else:
+            raise NameError('No such support type')
+            
+def projection(inarray,support,cons_type='support',pad=0):
+    """
+    Handling the support mask
+    Will apply mask and/or constraints onto the input array
+    according to the type of constraints demanded
     
-def plot_phase_residual(tru_img,rec_img):
-    """ Images in phasor form """
-    tru_pha = np.arctan2(tru_img.imag,tru_img.real)
-    rec_pha = np.arctan2(rec_img.imag,rec_img.real)
+    Inputs
+    - inarray: np.2darray
+      Input array
+    - support: np.2darray
+      The support mask. Should be valued 0 (or FALSE) in the support
+      and 1 (or TRUE) outside
     
-    residual = tru_pha - rec_pha
-    npix = residual.shape[0]*residual.shape[1]
+    Options
+    - cons_type: string
+      Type of constraints in addition to the defining region of support
+      -- 'support': do nothing
+      -- 'realpos': real positive. Used when e.g. the true pupil image
+                    is a photograph which also has no phase
+      -- 'comppos': complex positive. Both real and imaginary components
+                    are positive. Rarely used.
+    """
+    ## apply support
+    arr = np.copy(inarray)
+    arr[support] = pad
     
-    plt.figure(figsize=(8,8))
-    plt.imshow(abs(residual),origin='lower',cmap='gray')
-    clb = plt.colorbar()
-    clb.ax.set_title('rad')
-    print 'rms residual error (in phase) = {0:.2f} %'.format(np.sqrt(np.sum(residual**2)/npix)/np.sum(abs(tru_pha)/npix)*100)
+    if cons_type=='support':
+        return arr
+    
+    elif cons_type=='realpos':
+        a_real = arr.real
+        arr[a_real<0] = 0
+        return arr
+    
+    elif cons_type=='comppos':
+        a_real = arr.real
+        a_imag = arr.imag
+        arr[np.logical_and(a_real<0,a_imag<0)] = 0
+        return arr
