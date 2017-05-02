@@ -1,6 +1,7 @@
 """
 Utility functions not directly relevant for computations.
 """
+from __future__ import division
 import numpy as np
 
 def read_fits(filepath):
@@ -105,7 +106,7 @@ def fullcmask(array,pad=0):
     
     a , b = (nx-1)/2, (ny-1)/2 ## centroid
     y , x = np.ogrid[-a:nx-a,-b:ny-b]
-        
+    print x
     radius = a
     mask = x*x + y*y > radius**2
         
@@ -127,7 +128,7 @@ def Idxcmask(array,pad=0):
     radius = a
     mask = x*x + y*y > radius**2
     
-    return np.where(mask)
+    return mask
 
 ############################
 def expand_array(array):
