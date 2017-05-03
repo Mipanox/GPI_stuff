@@ -101,7 +101,7 @@ class Zernike(object):
         - Z_comb: numpy 2d array
           Combined aberration
         """
-        coeff = self.coeff
+        coeff = list(self.coeff)
         
         Z = [0] + coeff
         Z1  =  Z[1]  * 1*(np.cos(theta)**2 + np.sin(theta)**2)
@@ -140,7 +140,7 @@ class Zernike(object):
         - Z_comb: numpy 2d array
           Combined aberration
         """
-        coeff = self.coeff
+        coeff = list(self.coeff)
         
         Z = [0] + coeff
         r2 = x**2 + y**2
