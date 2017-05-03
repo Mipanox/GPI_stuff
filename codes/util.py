@@ -114,11 +114,15 @@ def fullcmask(array,pad=0):
     arr[mask] = pad
     return arr
 
-def Idxcmask(array,pad=0):
+def Idxcmask(array=None,Npix=None,pad=0):
     """
     The mask indices for fullcmask
     """
-    nx,ny = array.shape
+    if array is not None:
+        nx,ny = array.shape
+    elif Npix is not None:
+        nx,ny = Npix,Npix
+    
     if nx%2 or ny%2:
         raise ValueError('Array dimensions should be even')
     

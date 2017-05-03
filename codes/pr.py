@@ -10,7 +10,7 @@ import numpy as np
 from util import *
 from zernike import *
 
-def true_imgs(Npix,coeff1,coeff2,
+def true_imgs(Npix,coeff1,coeff2,oversamp=1,
               max_aberA=0.2,max_aberP=0.2):
     """
     Generate true images (both domains)
@@ -24,6 +24,7 @@ def true_imgs(Npix,coeff1,coeff2,
       object and Fourier domain images respectively
       
     Parameters
+    - oversamp: see the `PR` class. Should be the same
     - max_aberA, max_aberP: positive floats
       Maximum variations of the aberration in
       amplitude and phase respectively
@@ -43,8 +44,15 @@ def true_imgs(Npix,coeff1,coeff2,
     Ppha += fullcmask(np.ones((Npix,Npix)))
     
     P_ = Pamp*np.exp(1j*Ppha)
+    
+    
+    ## oversampling (zero-padding)
+    npix = Pamp.shape[0]
+    Npix = oversamp * npix
+    if (Npix-npix) > 2:
+        P_ = pad_array(P_,Npix,pad=0)  
     P  = abs(P_)**2
-
+    
     ## Fourier domain image
     F_rec = np.fft.fftshift(np.fft.fft2(P_))
     F_ = F_rec
@@ -77,6 +85,7 @@ class PR(object):
           Choice of support. The input image(s) should 
           have been masked by the same support.
           Defaults to 'circular'
+          -- 'none'    : no support
           -- 'circular': circular aperture with diameter
                          the same size as the image
           -- 
@@ -91,8 +100,9 @@ class PR(object):
           
         """
         
-        self.npix  = foc.shape[0]
-        self.N_pix = self.npix * oversamp
+        self.N_pix = foc.shape[0]
+        self.npix  = self.N_pix / oversamp 
+        #self.N_pix = self.npix * oversamp
         
         ## images
         self.foc_ = foc
@@ -104,23 +114,71 @@ class PR(object):
         self.supp = support
         supp_temp = self._gen_supp()
         
-        ## padding / oversampling
-        if (self.N_pix-self.npix) > 2:
-            self.foc     = pad_array(foc,self.N_pix)
-            self.support = pad_array(supp_temp,self.N_pix)
-            
-        else:
-            self.foc     = foc
-            self.support = supp_temp
-            print 'The image is not extended due to insufficient oversampling.'
+        self.foc = foc
+        self.support = pad_array(supp_temp,self.N_pix,pad=1)
         
-    def GS(self):
+    def GS(self,init='random',threshold=None):
         """
         Original two-image Gerchberg-Saxton algorithm
         """
         if self.pup is None:
             raise NameError('Please provide pupil plane (object domain) intensity')
         
+        pupil = self.pup
+        focus = self.foc
+
+        ## intensity to amplitude
+        pup,foc = np.sqrt(pupil),np.sqrt(focus)
+    
+        ## initialize error and phase
+        err = 1e10
+        if init=='random':
+            pha = np.random.random(pup.shape) * 2*np.pi
+        elif init=='uniform':
+            pha = np.ones(pup.shape)
+        else:
+            raise NameError('No such choice. Use "random" or "uniform"')
+    
+        ## initial states
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(pup,origin='lower')
+        plt.title('Input Amplitude')
+        plt.subplot(122); plt.imshow(pha,origin='lower')
+        plt.title('Initial Phase'); plt.show()
+    
+        ##
+        i = 1
+        pup_sum = np.sum(pup)
+        
+        err_list = []
+        
+        if threshold is None: 
+            ## iteration limit
+            threshold = 1e-15
+        while err > threshold:
+            Fpup = fftshift(fft2(pup*np.exp(1j*pha)))
+            pha  = np.arctan2(Fpup.imag,Fpup.real)
+            Ifoc = projection(ifft2(ifftshift(foc*np.exp(1j*pha))), self.support)
+            pha  = np.arctan2(Ifoc.imag,Ifoc.real)
+            
+            ## error (intensity) computed in pupil plane
+            #-- defined as rms error / sum of true input image
+            err =  np.sqrt(np.sum((abs(Ifoc)-pup)**2)) / pup_sum
+            i += 1
+            if i%100==0:
+                print 'Current step : {0}'.format(i)
+                print '        Error: {0:.2e}'.format(err)
+        
+            err_list.append(err)
+        
+            ## maximum iterations
+            if i >= 500:
+                break
+            
+        print 'Final step : {0}'.format(i)
+        print 'Final Error: {0:.2e}'.format(err)
+        
+        return Ifoc, Fpup
         
         
     def ER(self):
@@ -135,8 +193,10 @@ class PR(object):
             
     #############################        
     def _gen_supp(self):
-        if self.supp == 'circular':
-            return Idxcmask(self.foc_)
+        if self.supp == 'none':
+            return np.zeros(Npix=self.npix)
+        elif self.supp == 'circular':
+            return Idxcmask(Npix=self.npix)
         else:
             raise NameError('No such support type')
             
