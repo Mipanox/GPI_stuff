@@ -1,7 +1,7 @@
 """
 Phase retrieval.
 """
-
+from __future__ import division
 import sys
 sys.path.append("../codes/")
 
@@ -138,6 +138,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     
     return focused, defocused
 
+#####################################################
 class PR(object):
     def __init__(self,foc,pup=None,oversamp=1,
                  support='circular',
@@ -146,7 +147,7 @@ class PR(object):
         Default to single-image case
         
         Inputs
-        - Foc: np.2darray
+        - foc: np.2darray
           The focal plane (Fourier domain) image
           Only intensity
           
@@ -191,7 +192,21 @@ class PR(object):
         
         self.foc = foc
         self.support = pad_array(supp_temp,self.N_pix,pad=1)
+    
+    def __call__(self,foc_defoc):
+        """
+        Only call this before running phase diversity methods
         
+        Inputs
+        - foc_defoc: list of np.2darray
+          The focused and defocused Fourier domain images
+        """
+        if len(foc_defoc)!=2:
+            raise ValueError('I need two images. The focused one first')
+        
+        self.foc_foc = foc_defoc[0]
+        self.foc_def = foc_defoc[1]
+    
     def GS(self,init='random',threshold=None):
         """
         Original two-image Gerchberg-Saxton algorithm
@@ -421,6 +436,122 @@ class PR(object):
         
         return pup, foc, err_list   
             
+    def PD_ER(self,defocus,init='random',
+              cons_type='support',
+              threshold=None,iterlim=500):
+        """
+        Phase diversity with error reduction implementation
+        Two images. One on focus the other out of focus
+    
+        See `ER` documenation above for details.
+        
+        Inputs
+        - defocus: float
+          Degree of defocusing. Defined as the effective 
+          focal point deviation from the focal point. 
+          Unit in fraction of aperture diameter.
+          No default. Should be the same as the true inputs
+        """
+        if self.pup is not None:
+            print 'Caution: Pupil image is not used for constraints.'
+            
+        try:
+            foc_foc = self.foc_foc
+            foc_def = self.foc_def
+        except:
+            raise NameError('Please provide the Fourier domain images \
+                             by calling the object')
+            
+        ## intensity to amplitude
+        img_foc = np.sqrt(foc_foc)
+        img_def = np.sqrt(foc_def)
+    
+        ## initialize error and phase
+        err = 1e10
+        
+        #-- defocusing
+        coeff = [0]*15
+        coeff[3] += defocus
+        
+        zerD = Zernike(coeff=coeff,Npix=self.npix)
+        Dpha = zerD.crCartAber(plot=False)
+        Dpha = pad_array(Dpha,self.N_pix,pad=0)
+        
+        if init=='random':
+            pha_f = np.random.random(img_foc.shape) * 2*np.pi
+            pha_d = pha_f + Dpha
+        elif init=='uniform':
+            pha_f = np.ones(img_foc.shape)
+            pha_d = pha_f + Dpha
+        else:
+            raise NameError('No such method. Use "random" or "uniform"')
+    
+        ## initial guess
+        pup_f_,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
+        pup_d_,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
+        pup_f = abs(pup_f_)
+        pup_d = abs(pup_d_)
+    
+        ## initial states
+        plt.figure(figsize=(24,8))
+        plt.subplot(131); plt.imshow(pup_f,origin='lower')
+        plt.title('Initial guess Amplitude')
+        plt.subplot(132); plt.imshow(pha_f,origin='lower')
+        plt.title('Initial Phase (focused)'); plt.show()
+        plt.subplot(133); plt.imshow(pha_d,origin='lower')
+        plt.title('Initial Phase (defocused by %s)' %defocus); plt.show()
+    
+        ##
+        i = 1
+        img_sum = np.sum(img_foc)
+    
+        err_list = []
+        if threshold is None: 
+            ## iteration limit
+            threshold = 1e-15
+        while err > threshold:            
+            #--- defocusing
+            pup_f_pha = pup_f/abs(pup_f)
+            pup_d     = abs(pup_f)*np.exp(1j*(pup_f_pha+Dpha))
+            
+            ## Object-domain constraints
+            pup_f,_ = projection(pup_f,self.support,cons_type=cons_type)
+            pup_d,_ = projection(pup_d,self.support,cons_type=cons_type)
+            foc_f   = fftshift(fft2(pup_f))
+            foc_d   = fftshift(fft2(pup_d))
+            ## Fourier constraint
+            fo_f2 = img_foc * (foc_f/abs(foc_f))
+            fo_d2 = img_def * (foc_d/abs(foc_d))
+            pup_f = ifft2(ifftshift(fo_f2)) 
+            pup_d = ifft2(ifftshift(fo_d2))
+            
+            ## refocusing
+            pup_d_pha = pup_d/abs(pup_d)
+            pup_d_ref = abs(pup_d)*np.exp(1j*(pup_d_pha-Dpha))
+            
+            ## averaging
+            pup_f = (pup_f+pup_d_ref)/2
+            
+            ## error (mag) computed in pupil plane
+            err =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
+            i += 1
+            if i%100==0:
+                print 'Current step                    : {0}'.format(i)
+                print 'Error (of focused Fourier plane): {0:.2e}'.format(err)
+            
+            err_list.append(err)
+            ## maximal iteration
+            if i >= iterlim:
+                break
+        print '-----------------------'
+        print 'First iteration error: {0:.2e}'.format(err_list[0])
+        print 'Final step : {0}'.format(i)
+        print 'Final Error: {0:.2e}'.format(err)
+        
+        return pup_f, foc_f, err_list
+    
+    
+    
     #############################        
     def _gen_supp(self):
         if self.supp == 'none':
