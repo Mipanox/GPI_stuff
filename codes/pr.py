@@ -337,7 +337,7 @@ class PR(object):
             fo2 = img * (foc/abs(foc))
             pup = ifft2(ifftshift(fo2)) 
 
-            ## error (mag) computed in pupil plane
+            ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
             i += 1
             if i%100==0:
@@ -418,7 +418,7 @@ class PR(object):
             ## HIO
             pup[mask] = pup_old[mask]-beta*pup[mask]
         
-            ## error (mag) computed in pupil plane
+            ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
             i += 1
             if i%100==0:
@@ -497,7 +497,7 @@ class PR(object):
         plt.subplot(131); plt.imshow(pup_f,origin='lower')
         plt.title('Initial guess Amplitude')
         plt.subplot(132); plt.imshow(pha_f,origin='lower')
-        plt.title('Initial Phase (focused)'); plt.show()
+        plt.title('Initial Phase (focused)')
         plt.subplot(133); plt.imshow(pha_d,origin='lower')
         plt.title('Initial Phase (defocused by %s)' %defocus); plt.show()
     
@@ -509,11 +509,7 @@ class PR(object):
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
-        while err > threshold:            
-            #--- defocusing
-            pup_f_pha = pup_f/abs(pup_f)
-            pup_d     = abs(pup_f)*np.exp(1j*(pup_f_pha+Dpha))
-            
+        while err > threshold:                        
             ## Object-domain constraints
             pup_f,_ = projection(pup_f,self.support,cons_type=cons_type)
             pup_d,_ = projection(pup_d,self.support,cons_type=cons_type)
@@ -532,7 +528,7 @@ class PR(object):
             ## averaging
             pup_f = (pup_f+pup_d_ref)/2
             
-            ## error (mag) computed in pupil plane
+            ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
             i += 1
             if i%100==0:
@@ -540,9 +536,15 @@ class PR(object):
                 print 'Error (of focused Fourier plane): {0:.2e}'.format(err)
             
             err_list.append(err)
+            
+            #--- defocusing
+            pup_f_pha = pup_f/abs(pup_f)
+            pup_d     = abs(pup_f)*np.exp(1j*(pup_f_pha+Dpha))
+            
             ## maximal iteration
             if i >= iterlim:
                 break
+                
         print '-----------------------'
         print 'First iteration error: {0:.2e}'.format(err_list[0])
         print 'Final step : {0}'.format(i)
