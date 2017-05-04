@@ -56,13 +56,87 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     P  = abs(P_)**2
     
     ## Fourier domain image
-    F_rec = np.fft.fftshift(np.fft.fft2(P_))
-    F_ = F_rec
+    F_ = fftshift(fft2(P_))
     Famp = abs(F_)
     Fpha = np.arctan2(F_.imag,F_.real)
     F = Famp**2
     
     return P,P_,F,F_
+
+def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
+                      max_aberA=0.5,max_aberP=0.5,
+                      defocus=10):
+    """
+    Generate true images (both domains) defocused
+    and at focus for a given size in combined Zernike modes
+    
+    Inputs & Parameters
+     see descriptions in `true_imgs_defocus`
+    
+    Parameters
+    - defocus: float
+      Degree of defocusing. Defined as the effective 
+      focal point deviation from the focal point. 
+      Unit in fraction of aperture diameter.
+      Default is 10
+      
+    Returns
+    - focused: list of np.2darray
+      The pupil plane intensity, complex (complete phasor) 
+      form, and same for focal plane images
+    - defocused: list of np.2darray
+      The defocused images. As for `focused`
+    """
+    ## Zernike
+    ### defocusing
+    coeff3 = np.copy(coeff2)
+    coeff3[3] += defocus
+    zerP = Zernike(coeff=coeff1,Npix=Npix)
+    zerF = Zernike(coeff=coeff2,Npix=Npix)
+    zerD = Zernike(coeff=coeff3,Npix=Npix)
+    
+    Pamp = abs(zerP.crCartAber(plot=False))
+    Ppha = zerF.crCartAber(plot=False)
+    Dpha = zerD.crCartAber(plot=False)
+    
+    #-- maximum
+    Pamp *= max_aberA
+    Ppha *= max_aberP
+    
+    Pamp += fullcmask(np.ones((Npix,Npix)))
+    Ppha += fullcmask(np.ones((Npix,Npix)))
+    Dpha += fullcmask(np.ones((Npix,Npix)))
+    
+    P_ = Pamp*np.exp(1j*Ppha)
+    D_ = Pamp*np.exp(1j*Dpha)
+    
+    #-- oversampling (zero-padding)
+    npix = Pamp.shape[0]
+    Npix = oversamp * npix
+    if (Npix-npix) > 2:
+        P_ = pad_array(P_,Npix,pad=0)
+        D_ = pad_array(D_,Npix,pad=0)
+    else:
+        raise ValueError('Oversampling rate should be larger')
+    P = abs(P_)**2
+    D = abs(D_)**2
+    
+    ## Fourier domain image
+    F_  = fftshift(fft2(P_))
+    F_d = fftshift(fft2(D_))
+    
+    Famp = abs(F_)
+    D_da = abs(F_d)
+    Fpha = np.arctan2(F_.imag,F_.real)
+    F_dp = np.arctan2(F_d.imag,F_d.real)
+    F  = Famp**2
+    Fd = D_da**2
+    
+    ## focused
+    focused = [P,P_,F,F_]
+    defocused = [D,D_,Fd,F_d]
+    
+    return focused, defocused
 
 class PR(object):
     def __init__(self,foc,pup=None,oversamp=1,
