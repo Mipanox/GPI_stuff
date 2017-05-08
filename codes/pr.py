@@ -9,6 +9,7 @@ from numpy.fft import fft2, ifft2, fftshift, ifftshift
 import numpy as np
 from util import *
 from zernike import *
+from skimage.restoration import unwrap_phase
 
 def true_imgs(Npix,coeff1,coeff2,oversamp=1,
               max_aberA=0.2,max_aberP=0.2):
@@ -247,9 +248,9 @@ class PR(object):
             threshold = 1e-15
         while err > threshold:
             Fpup = fftshift(fft2(pup*np.exp(1j*pha)))
-            pha  = np.arctan2(Fpup.imag,Fpup.real)
+            pha  = np.angle(Fpup)
             Ifoc,_ = projection(ifft2(ifftshift(foc*np.exp(1j*pha))), self.support)
-            pha    = np.arctan2(Ifoc.imag,Ifoc.real)
+            pha    = np.angle(Ifoc)
             
             ## error (intensity) computed in pupil plane
             #-- defined as rms error / sum of true input image
@@ -620,15 +621,15 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
     """
     ## true
     A = abs(true_pup)
-    Apha = np.arctan2(true_pup.imag,true_pup.real)
+    Apha = np.angle(true_pup)
     B = abs(true_foc)
-    Bpha = np.arctan2(true_foc.imag,true_foc.real)
+    Bpha = np.angle(true_foc)
     
     ## reconstructed
     rec_pup = abs(rec_pup_)
-    rec_puppha = np.arctan2(rec_pup_.imag,rec_pup_.real)
+    rec_puppha = unwrap_phase(np.angle(rec_pup_))
     rec_foc = abs(rec_foc_)
-    rec_focpha = np.arctan2(rec_foc_.imag,rec_foc_.real)
+    rec_focpha = unwrap_phase(np.angle(rec_foc_))
     
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(A,origin='lower')
@@ -639,42 +640,44 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
 
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(Apha,origin='lower')
-    plt.title('Phase - True pupil image'); plt.colorbar(); plt.clim(0,2*np.pi)
+    plt.title('Phase - True pupil image'); plt.colorbar()
     plt.subplot(122); plt.imshow(rec_puppha,origin='lower')
-    plt.title('Phase - Reconstructed'); plt.colorbar(); plt.clim(0,2*np.pi)
+    plt.title('Phase - Reconstructed'); plt.colorbar()
     plt.show()
     
     ###
     plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(B,origin='lower',norm=LogNorm())
-    plt.title('Amplitude - True focal image (log)'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_foc,origin='lower',norm=LogNorm())
-    plt.title('Amplitude - Reconstructed (log)'); plt.colorbar()
+    plt.subplot(121); plt.imshow(B**2,origin='lower')#,norm=LogNorm())
+    plt.xlim(220,292); plt.ylim(220,292)
+    plt.title('Intensity - True focal image'); plt.colorbar()
+    plt.subplot(122); plt.imshow(rec_foc**2,origin='lower')#,norm=LogNorm())
+    plt.xlim(220,292); plt.ylim(220,292)
+    plt.title('Intensity - Reconstructed'); plt.colorbar()
     plt.show()
 
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(Bpha,origin='lower')
-    plt.title('Phase - True focal image'); plt.colorbar(); plt.clim(0,2*np.pi)
+    plt.title('Phase - True focal image'); plt.colorbar()
     plt.subplot(122); plt.imshow(rec_focpha,origin='lower')
-    plt.title('Phase - Reconstructed'); plt.colorbar(); plt.clim(0,2*np.pi)
+    plt.title('Phase - Reconstructed'); plt.colorbar()
     plt.show()  
 
 def plot_phase_residual(true_pup,true_foc,rec_pup_,rec_foc_):
     ## true
-    Apha = np.arctan2(true_pup.imag,true_pup.real)
-    Bpha = np.arctan2(true_foc.imag,true_foc.real)
+    Apha = np.angle(true_pup)
+    Bpha = np.angle(true_foc)
     
     ## reconstructed
-    rec_puppha = np.arctan2(rec_pup_.imag,rec_pup_.real)
-    rec_focpha = np.arctan2(rec_foc_.imag,rec_foc_.real)
+    rec_puppha = unwrap_phase(np.angle(rec_pup_))
+    rec_focpha = unwrap_phase(np.angle(rec_foc_))
     
     ### "Difference" of phases
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(abs(Apha-rec_puppha),origin='lower')
-    plt.title('Pupil plane phase difference'); plt.clim(0,2*np.pi)
+    plt.title('Pupil plane phase difference')
     clb = plt.colorbar(); clb.ax.set_title('rad')
     plt.subplot(122); plt.imshow(abs(Bpha-rec_focpha),origin='lower')
-    plt.title('Focal plane phase difference'); plt.clim(0,2*np.pi)
+    plt.title('Focal plane phase difference')
     clb = plt.colorbar(); clb.ax.set_title('rad')
     plt.show()
     
