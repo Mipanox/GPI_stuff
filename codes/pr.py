@@ -562,7 +562,138 @@ class PR(object):
         pup_f_proj,_ = projection(pup_f,self.support,cons_type=cons_type)
         return pup_f, foc_f, err_list, pup_f_proj
     
+    def OSS(self,beta,alpha_par=None,init='random',cons_type='support',
+            threshold=None,iterlim=1000):
+        """
+        Oversampling smoothness incorporating HIO.
+        First guess is determined by the amplitude of 
+        IFTed image + `init` phase.
+      
+        Parameters
+        - beta: float
+          The scaling of HIO correction. Recommended range is 0.5-1.0
+        - alpha_par: list of numbers (length of 3)
+          Parameters for Gaussian smoothing. They are respectively:
+          The starting (largest) scale, the final (smallest) scale,
+          and the number of steps at each scale.
+          If `None` (default), taken to be [N_pix,1/N_pix,10]
+      
+        Options
+         see descriptions in `ER`
+         Note: due to the nature of scaling (alpha), 
+         one cannot set threshold (keep it `None`)
+        """
+        if self.pup is not None:
+            print 'Caution: Pupil image is not used for constraints.'
+            print '         This is one-image process.'
+        
+        if threshold is not None: 
+            print '-'*30
+            print 'Cannot set error threshold. Changed to `None`'
+            threshold = None
+        
+        #--------------------------
+        ## alpha
+        if alpha_par==None:
+            sca_lar = self.N_pix
+            sca_sml = 1/self.N_pix
+            alpha_steps = 10
+        else:
+            sca_lar = alpha_par[0]
+            sca_sml = alpha_par[1]
+            alpha_steps = alpha_par[2]
+            
+        alpha = np.linspace(sca_lar,sca_sml,alpha_steps)
+        if iterlim%alpha_steps:
+            raise ValueError('Steps for alpha must be a divisor of total number of iterations')
+        chunk = int(iterlim/alpha_steps)
+        
+        ## filter
+        grid_x,grid_y = np.ogrid[-(self.N_pix-1)/2:(self.N_pix-1)/2,
+                                 -(self.N_pix-1)/2:(self.N_pix-1)/2]
+        grid_r = np.sqrt(grid_x**2+grid_y**2)
+        filter_gauss = []
+        for alp in alpha:
+            filter_gauss.append(np.exp(-0.5*(grid_r/alp)**2))
+        #--------------------------
+        
+        ## intensity to amplitude
+        image = self.foc
+        img = np.sqrt(image)
     
+        ## initialize error and phase
+        err = 1e10
+        if init=='random':
+            pha = np.random.random(img.shape) * 2*np.pi
+        elif init=='uniform':
+            pha = np.ones(img.shape)
+        else:
+            raise NameError('No such method. Use "random" or "uniform"')
+    
+        ## initial guess
+        pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
+        pup_ = abs(pup)
+    
+        ## initial states
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(pup_,origin='lower')
+        plt.title('Initial guess Amplitude')
+        plt.subplot(122); plt.imshow(pha,origin='lower')
+        plt.title('Initial Phase'); plt.show()
+    
+        #------------------------------
+        i,itr = 1,0
+        img_sum = np.sum(img)
+    
+        err_list = []
+        if threshold is None: 
+            ## iteration limit
+            threshold = 1e-15
+        while err > threshold:
+            ## 'best-fit' in each step
+            temp_best_pup = None
+            for j in range(chunk):
+                pup_old = pup
+                
+                foc = fftshift(fft2(pup))
+                ## Fourier constraint, update 'inside support'
+                fo2 = img * (foc/abs(foc))
+                pup = ifft2(ifftshift(fo2)) 
+                
+                pu2,mask = projection(pup,self.support,cons_type=cons_type)
+                
+                ## HIO
+                pup[mask] = pup_old[mask]-beta*pup[mask]
+                #--- filtering
+                pup[mask] = ifft2(ifftshift(fftshift(fft(pup))*filter_gauss[itr]))[mask]
+                
+                ## error (mag) computed in focal plane
+                err_ =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
+                if err_ < err:
+                    ## updating best-fit
+                    temp_best_pup = pup
+                err = err_
+                
+                i += 1
+                if i%100==0:
+                    print 'Current step : {0}'.format(i)
+                    print '        Error: {0:.2e}'.format(err)
+        
+                err_list.append(err)
+            ## new initial input for next step
+            pup  = temp_best_pup
+            itr += 1
+            
+            ## maximal iteration
+            if i >= iterlim:
+                break
+        print '-----------------------'
+        print 'First iteration error: {0:.2e}'.format(err_list[0])
+        print 'Final step : {0}'.format(i)
+        print 'Final Error: {0:.2e}'.format(err)
+        
+        pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
+        return pup, foc, err_list, pup_proj
     
     #############################        
     def _gen_supp(self):
