@@ -510,7 +510,7 @@ class PR(object):
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
-        while err > threshold:                        
+        while err > threshold:
             ## Object-domain constraints
             pup_f,_ = projection(pup_f,self.support,cons_type=cons_type)
             pup_d,_ = projection(pup_d,self.support,cons_type=cons_type)
@@ -621,9 +621,9 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
     """
     ## true
     A = abs(true_pup)
-    Apha = np.angle(true_pup)
+    Apha = unwrap_phase(np.angle(true_pup))
     B = abs(true_foc)
-    Bpha = np.angle(true_foc)
+    Bpha = unwrap_phase(np.angle(true_foc))
     
     ## reconstructed
     rec_pup = abs(rec_pup_)
