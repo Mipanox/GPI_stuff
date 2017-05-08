@@ -38,8 +38,8 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     Ppha = zerF.crCartAber(plot=False)
 
     #-- maximum
-    Pamp *= max_aberA
-    Ppha *= max_aberP
+    Pamp *= max_aberA/np.max(Pamp)
+    Ppha *= max_aberP/np.max(Ppha)
     
     Pamp += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
@@ -65,7 +65,7 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     return P,P_,F,F_
 
 def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
-                      max_aberA=0.5,max_aberP=0.5,
+                      max_aberA=0.2,max_aberP=0.2,
                       defocus=10):
     """
     Generate true images (both domains) defocused
@@ -101,8 +101,8 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     Dpha = zerD.crCartAber(plot=False)
     
     #-- maximum
-    Pamp *= max_aberA
-    Ppha *= max_aberP
+    Pamp *= max_aberA/np.max(Pamp)
+    Ppha *= max_aberP/np.max(Ppha)
     
     Pamp += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
