@@ -439,12 +439,12 @@ class PR(object):
             
     def PD_ER(self,defocus,init='random',
               cons_type='support',
-              threshold=None,iterlim=500):
+              threshold=None,iterlim=500,true_phasorP=None,true_phasorF=None):
         """
         Phase diversity with error reduction implementation
         Two images. One on focus the other out of focus
     
-        See `ER` documenation above for details.
+        See `ER` documenation for details.
         
         Inputs
         - defocus: float
@@ -478,29 +478,34 @@ class PR(object):
         Dpha = zerD.crCartAber(plot=False)
         Dpha = pad_array(Dpha,self.N_pix,pad=0)
         
+        ### we don't care about 'defocusing' here
         if init=='random':
             pha_f = np.random.random(img_foc.shape) * 2*np.pi
-            pha_d = pha_f + Dpha
+            pha_d = np.random.random(img_foc.shape) * 2*np.pi
         elif init=='uniform':
             pha_f = np.ones(img_foc.shape)
-            pha_d = pha_f + Dpha
+            pha_d = np.ones(img_foc.shape)
+        elif init=='test':
+            pha_f = unwrap_phase(np.angle(true_phasorP)) + \
+                    np.random.random(img_foc.shape)*1e-4
+            pha_d = unwrap_phase(np.angle(true_phasorF)) + \
+                    np.random.random(img_foc.shape)*1e-4
+            iterlim = 1
         else:
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
-        pup_f_,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
-        pup_d_,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
-        pup_f = abs(pup_f_)
-        pup_d = abs(pup_d_)
-    
+        pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
+        pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
+        pup_f_ = abs(pup_f)
+        pup_d_ = abs(pup_d)
+        
         ## initial states
-        plt.figure(figsize=(24,8))
-        plt.subplot(131); plt.imshow(pup_f,origin='lower')
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(pup_f_,origin='lower'); plt.colorbar()
         plt.title('Initial guess Amplitude')
-        plt.subplot(132); plt.imshow(pha_f,origin='lower')
-        plt.title('Initial Phase (focused)')
-        plt.subplot(133); plt.imshow(pha_d,origin='lower')
-        plt.title('Initial Phase (defocused by %s)' %defocus); plt.show()
+        plt.subplot(122); plt.imshow(pha_f,origin='lower'); plt.colorbar()
+        plt.title('Initial guess Phase'); plt.show()
     
         ##
         i = 1
@@ -522,16 +527,17 @@ class PR(object):
             pup_f = ifft2(ifftshift(fo_f2)) 
             pup_d = ifft2(ifftshift(fo_d2))
             
-            ## refocusing
-            pup_d_pha = pup_d/abs(pup_d)
+            #--- refocusing
+            pup_d_pha = np.angle(pup_d)
             pup_d_ref = abs(pup_d)*np.exp(1j*(pup_d_pha-Dpha))
             
             ## averaging
-            pup_f = (pup_f+pup_d_ref)/2
+            pup_f = (abs(pup_f)+abs(pup_d_ref))/2 * \
+                    np.exp(1j*((np.angle(pup_d_ref)+np.angle(pup_f))/2))
             
             ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
-            i += 1
+            
             if i%100==0:
                 print 'Current step                    : {0}'.format(i)
                 print 'Error (of focused Fourier plane): {0:.2e}'.format(err)
@@ -539,19 +545,22 @@ class PR(object):
             err_list.append(err)
             
             #--- defocusing
-            pup_f_pha = pup_f/abs(pup_f)
+            pup_f_pha = np.angle(pup_f)
             pup_d     = abs(pup_f)*np.exp(1j*(pup_f_pha+Dpha))
             
             ## maximal iteration
             if i >= iterlim:
                 break
+            
+            i += 1
                 
         print '-----------------------'
         print 'First iteration error: {0:.2e}'.format(err_list[0])
         print 'Final step : {0}'.format(i)
         print 'Final Error: {0:.2e}'.format(err)
         
-        return pup_f, foc_f, err_list
+        pup_f_proj,_ = projection(pup_f,self.support,cons_type=cons_type)
+        return pup_f, foc_f, err_list, pup_f_proj
     
     
     

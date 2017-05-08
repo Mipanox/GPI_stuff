@@ -134,6 +134,20 @@ def Idxcmask(array=None,Npix=None,pad=0):
     
     return mask
 
+def ccmask(array,radius):
+    """ Leaving only circular region within radius """
+    nx,ny = array.shape
+    if nx%2 or ny%2:
+        raise ValueError('Array dimensions should be even')
+    
+    a , b = (nx-1)/2, (ny-1)/2 ## centroid
+    y , x = np.ogrid[-a:nx-a,-b:ny-b]
+    mask = x*x + y*y > radius**2
+    
+    arr = np.copy(array)
+    arr[mask] = 0
+    return arr
+
 ############################
 def expand_array(array):
     """
