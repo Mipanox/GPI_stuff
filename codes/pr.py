@@ -563,7 +563,7 @@ class PR(object):
         return pup_f, foc_f, err_list, pup_f_proj
     
     def OSS(self,beta,alpha_par=None,init='random',cons_type='support',
-            threshold=None,iterlim=1000):
+            threshold=None,iterlim=2000):
         """
         Oversampling smoothness incorporating HIO.
         First guess is determined by the amplitude of 
@@ -609,8 +609,8 @@ class PR(object):
         chunk = int(iterlim/alpha_steps)
         
         ## filter
-        grid_x,grid_y = np.ogrid[-(self.N_pix-1)/2:(self.N_pix-1)/2,
-                                 -(self.N_pix-1)/2:(self.N_pix-1)/2]
+        grid_x,grid_y = np.ogrid[-(self.N_pix-1)/2:(self.N_pix+1)/2,
+                                 -(self.N_pix-1)/2:(self.N_pix+1)/2]
         grid_r = np.sqrt(grid_x**2+grid_y**2)
         filter_gauss = []
         for alp in alpha:
@@ -652,20 +652,26 @@ class PR(object):
         while err > threshold:
             ## 'best-fit' in each step
             temp_best_pup = None
+            print 'Current filter:'
+            plt.figure(figsize=(6,6))
+            plt.imshow(filter_gauss[itr],cmap='gray',origin='lower'); 
+            plt.clim(0,1); plt.colorbar(); plt.show()
+            
+            ## steps
             for j in range(chunk):
                 pup_old = pup
                 
                 foc = fftshift(fft2(pup))
                 ## Fourier constraint, update 'inside support'
                 fo2 = img * (foc/abs(foc))
-                pup = ifft2(ifftshift(fo2)) 
+                pup = ifft2(ifftshift(fo2))
                 
                 pu2,mask = projection(pup,self.support,cons_type=cons_type)
                 
                 ## HIO
                 pup[mask] = pup_old[mask]-beta*pup[mask]
                 #--- filtering
-                pup[mask] = ifft2(ifftshift(fftshift(fft(pup))*filter_gauss[itr]))[mask]
+                pup[mask] = ifft2(ifftshift(fftshift(fft2(pup))*filter_gauss[itr]))[mask]
                 
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
@@ -676,8 +682,8 @@ class PR(object):
                 
                 i += 1
                 if i%100==0:
-                    print 'Current step : {0}'.format(i)
-                    print '        Error: {0:.2e}'.format(err)
+                    print 'Current iter. : {0}'.format(i)
+                    print '        Error : {0:.2e}'.format(err)
         
                 err_list.append(err)
             ## new initial input for next step
@@ -689,7 +695,7 @@ class PR(object):
                 break
         print '-----------------------'
         print 'First iteration error: {0:.2e}'.format(err_list[0])
-        print 'Final step : {0}'.format(i)
+        print 'Final iteration : {0}'.format(i)
         print 'Final Error: {0:.2e}'.format(err)
         
         pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
