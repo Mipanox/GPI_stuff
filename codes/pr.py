@@ -616,7 +616,7 @@ def projection(inarray,support,cons_type='support',pad=0):
         arr[mask] = 0
         return arr, mask
     
-def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
+def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,mod2pi=False):
     """
     Juxtaposing true/reconstructed amplitude/phase images
     
@@ -646,13 +646,21 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
     plt.subplot(122); plt.imshow(rec_pup,origin='lower')
     plt.title('Amplitude - Reconstructed'); plt.colorbar()
     plt.show()
-
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(Apha,origin='lower')
-    plt.title('Phase - True pupil image'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_puppha,origin='lower')
-    plt.title('Phase - Reconstructed'); plt.colorbar()
-    plt.show()
+    
+    if mod2pi==False:
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(Apha,origin='lower')
+        plt.title('Phase - True pupil image'); plt.colorbar()
+        plt.subplot(122); plt.imshow(rec_puppha,origin='lower')
+        plt.title('Phase - Reconstructed'); plt.colorbar()
+        plt.show()
+    else:
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(np.mod(Apha,2*np.pi),origin='lower')
+        plt.title('Phase - True pupil image'); plt.colorbar(); plt.clim(0,2*np.pi)
+        plt.subplot(122); plt.imshow(np.mod(rec_puppha,2*np.pi),origin='lower')
+        plt.title('Phase - Reconstructed'); plt.colorbar(); plt.clim(0,2*np.pi)
+        plt.show()
     
     ###
     plt.figure(figsize=(16,8))
@@ -664,12 +672,20 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_):
     plt.title('Intensity - Reconstructed'); plt.colorbar()
     plt.show()
 
-    plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(Bpha,origin='lower')
-    plt.title('Phase - True focal image'); plt.colorbar()
-    plt.subplot(122); plt.imshow(rec_focpha,origin='lower')
-    plt.title('Phase - Reconstructed'); plt.colorbar()
-    plt.show()  
+    if mod2pi==False:
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(Bpha,origin='lower')
+        plt.title('Phase - True focal image'); plt.colorbar()
+        plt.subplot(122); plt.imshow(rec_focpha,origin='lower')
+        plt.title('Phase - Reconstructed'); plt.colorbar()
+        plt.show()
+    else:
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(np.mod(Bpha,2*np.pi),origin='lower')
+        plt.title('Phase - True focal image'); plt.colorbar()
+        plt.subplot(122); plt.imshow(np.mod(rec_focpha,2*np.pi),origin='lower')
+        plt.title('Phase - Reconstructed'); plt.colorbar()
+        plt.show()
 
 def plot_phase_residual(true_pup,true_foc,rec_pup_,rec_foc_):
     ## true
@@ -677,16 +693,18 @@ def plot_phase_residual(true_pup,true_foc,rec_pup_,rec_foc_):
     Bpha = np.angle(true_foc)
     
     ## reconstructed
-    rec_puppha = unwrap_phase(np.angle(rec_pup_))
-    rec_focpha = unwrap_phase(np.angle(rec_foc_))
+    rec_puppha = np.angle(rec_pup_)
+    rec_focpha = np.angle(rec_foc_)
     
+    pup_diff = unwrap_phase(Apha-rec_puppha)
+    foc_diff = unwrap_phase(Bpha-rec_focpha)
     ### "Difference" of phases
     plt.figure(figsize=(16,8))
-    plt.subplot(121); plt.imshow(abs(Apha-rec_puppha),origin='lower')
-    plt.title('Pupil plane phase difference')
+    plt.subplot(121); plt.imshow(pup_diff,origin='lower')
+    plt.title('Pupil plane phase diff.')
     clb = plt.colorbar(); clb.ax.set_title('rad')
-    plt.subplot(122); plt.imshow(abs(Bpha-rec_focpha),origin='lower')
-    plt.title('Focal plane phase difference')
+    plt.subplot(122); plt.imshow(foc_diff,origin='lower')
+    plt.title('Focal plane phase diff.')
     clb = plt.colorbar(); clb.ax.set_title('rad')
     plt.show()
     
