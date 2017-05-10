@@ -38,8 +38,8 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     Ppha = zerF.crCartAber(plot=False)
 
     #-- maximum
-    Pamp *= max_aberA/np.max(Pamp)
-    Ppha *= max_aberP/np.max(Ppha)
+    Pamp *= max_aberA/(np.max(Pamp)+1e-10)
+    Ppha *= max_aberP/(np.max(Ppha)+1e-10)
     
     Pamp += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
@@ -49,7 +49,7 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     
     ## oversampling (zero-padding)
     npix = Pamp.shape[0]
-    Npix = oversamp * npix
+    Npix = 2 * oversamp * npix
     if (Npix-npix) > 2:
         P_ = pad_array(P_,Npix,pad=0)  
     else:
@@ -101,8 +101,8 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     Dpha = zerD.crCartAber(plot=False)
     
     #-- maximum
-    Pamp *= max_aberA/np.max(Pamp)
-    Ppha *= max_aberP/np.max(Ppha)
+    Pamp *= max_aberA/(np.max(Pamp)+1e-10)
+    Ppha *= max_aberP/(np.max(Ppha)+1e-10)
     
     Pamp += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
@@ -113,7 +113,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     
     #-- oversampling (zero-padding)
     npix = Pamp.shape[0]
-    Npix = oversamp * npix
+    Npix = 2 * oversamp * npix
     if (Npix-npix) > 2:
         P_ = pad_array(P_,Npix,pad=0)
         D_ = pad_array(D_,Npix,pad=0)
@@ -179,7 +179,7 @@ class PR(object):
         """
         
         self.N_pix = foc.shape[0]
-        self.npix  = self.N_pix / oversamp # original size
+        self.npix  = self.N_pix / oversamp / 2 # original size
         
         ## images
         self.foc_ = foc
@@ -592,30 +592,8 @@ class PR(object):
             print 'Cannot set error threshold. Changed to `None`'
             threshold = None
         
-        #--------------------------
-        ## alpha
-        if alpha_par==None:
-            sca_lar = self.N_pix
-            sca_sml = 1/self.N_pix
-            alpha_steps = 10
-        else:
-            sca_lar = alpha_par[0]
-            sca_sml = alpha_par[1]
-            alpha_steps = alpha_par[2]
-            
-        alpha = np.linspace(sca_lar,sca_sml,alpha_steps)
-        if iterlim%alpha_steps:
-            raise ValueError('Steps for alpha must be a divisor of total number of iterations')
-        chunk = int(iterlim/alpha_steps)
-        
-        ## filter
-        grid_x,grid_y = np.ogrid[-(self.N_pix-1)/2:(self.N_pix+1)/2,
-                                 -(self.N_pix-1)/2:(self.N_pix+1)/2]
-        grid_r = np.sqrt(grid_x**2+grid_y**2)
-        filter_gauss = []
-        for alp in alpha:
-            filter_gauss.append(np.exp(-0.5*(grid_r/alp)**2))
-        #--------------------------
+        ## smoothing functions
+        chunk, filter_gauss = self._gen_alpha(self,alpha_par)
         
         ## intensity to amplitude
         image = self.foc
@@ -642,7 +620,7 @@ class PR(object):
         plt.title('Initial Phase'); plt.show()
     
         #------------------------------
-        i,itr = 1,0
+        i,itr = 0,0
         img_sum = np.sum(img)
     
         err_list = []
@@ -700,6 +678,178 @@ class PR(object):
         
         pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
         return pup, foc, err_list, pup_proj
+
+    
+    def PD_ER_smoothing(self,defocus,alpha_par=None,
+                        init='random',cons_type='support',
+                        threshold=None,iterlim=2000,
+                        true_phasorP=None,true_phasorF=None):
+        """
+        Phase diversity with error reduction implementation
+        and gradual smoothing in the Fourier domain
+        Two images. One on focus the other out of focus
+    
+        At this point it keeps ER and the smoothing is done in
+        the averaged pupil image
+        
+        See `PD_ER` and `OSS` documenations for other details.
+        
+        Inputs
+        - defocus: float
+          Degree of defocusing. Defined as the effective 
+          focal point deviation from the focal point. 
+          Unit in fraction of aperture diameter.
+          No default. Should be the same as the true inputs
+          
+        Parameters
+        - alpha_par: list of numbers (length of 3)
+          Parameters for Gaussian smoothing. They are respectively:
+          The starting (largest) scale, the final (smallest) scale,
+          and the number of steps at each scale.
+          If `None` (default), taken to be [N_pix,1/N_pix,10]
+        """
+        if self.pup is not None:
+            print 'Caution: Pupil image is not used for constraints.'
+            
+        if threshold is not None: 
+            print '-'*30
+            print 'Cannot set error threshold. Changed to `None`'
+            threshold = None
+            
+        ##     
+        try:
+            foc_foc = self.foc_foc
+            foc_def = self.foc_def
+        except:
+            raise NameError('Please provide the Fourier domain images \
+                             by calling the object')
+        ## smoothing functions
+        chunk, filter_gauss = self._gen_alpha(alpha_par,iterlim)
+        #--------------------------
+        ## intensity to amplitude
+        img_foc = np.sqrt(foc_foc)
+        img_def = np.sqrt(foc_def)
+    
+        ## initialize error and phase
+        err = 1e10
+        
+        #-- defocusing
+        coeff = [0]*15
+        coeff[3] += defocus
+        
+        zerD = Zernike(coeff=coeff,Npix=self.npix)
+        Dpha = zerD.crCartAber(plot=False)
+        Dpha = pad_array(Dpha,self.N_pix,pad=0)
+        
+        ### we don't care about 'defocusing' here
+        if init=='random':
+            pha_f = np.random.random(img_foc.shape) * 2*np.pi
+            pha_d = np.random.random(img_foc.shape) * 2*np.pi
+        elif init=='uniform':
+            pha_f = np.ones(img_foc.shape)
+            pha_d = np.ones(img_foc.shape)
+        elif init=='test':
+            pha_f = unwrap_phase(np.angle(true_phasorP)) + \
+                    np.random.random(img_foc.shape)*1e-4
+            pha_d = unwrap_phase(np.angle(true_phasorF)) + \
+                    np.random.random(img_foc.shape)*1e-4
+            iterlim = 1
+        else:
+            raise NameError('No such method. Use "random" or "uniform"')
+    
+        ## initial guess
+        pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
+        pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
+        pup_f_ = abs(pup_f)
+        pup_d_ = abs(pup_d)
+        
+        ## initial states
+        plt.figure(figsize=(16,8))
+        plt.subplot(121); plt.imshow(pup_f_,origin='lower'); plt.colorbar()
+        plt.title('Initial guess Amplitude')
+        plt.subplot(122); plt.imshow(pha_f,origin='lower'); plt.colorbar()
+        plt.title('Initial guess Phase'); plt.show()
+    
+        ##
+        i,itr = 0,0
+        img_sum = np.sum(img_foc)
+    
+        err_list = []
+        if threshold is None: 
+            ## iteration limit
+            threshold = 1e-15
+        while err > threshold:
+            ## 'best-fit' in each step
+            temp_best_pup = None
+            print 'Current filter:'
+            plt.figure(figsize=(6,6))
+            plt.imshow(filter_gauss[itr],cmap='gray',origin='lower'); 
+            plt.clim(0,1); plt.colorbar(); plt.show()
+            
+            for j in range(chunk):
+                ## Object-domain constraints
+                pup_f,_ = projection(pup_f,self.support,cons_type=cons_type)
+                pup_d,_ = projection(pup_d,self.support,cons_type=cons_type)
+                foc_f   = fftshift(fft2(pup_f))
+                foc_d   = fftshift(fft2(pup_d))
+                ## Fourier constraint
+                fo_f2 = img_foc * (foc_f/abs(foc_f))
+                fo_d2 = img_def * (foc_d/abs(foc_d))
+                pup_f = ifft2(ifftshift(fo_f2)) 
+                pup_d = ifft2(ifftshift(fo_d2))
+            
+                #--- refocusing
+                pup_d_pha = np.angle(pup_d)
+                pup_d_ref = abs(pup_d)*np.exp(1j*(pup_d_pha-Dpha))
+            
+                ## averaging
+                pup_f =           ( abs(pup_f)     +abs(pup_d_ref)     )/2 * \
+                        np.exp(1j*((np.angle(pup_f)+np.angle(pup_d_ref))/2))
+            
+                #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+                #--- smoothing in "averaged" image 
+                pu2,mask = projection(pup_f,self.support,cons_type=cons_type)
+                pup_f[mask] = 0 ## ER
+                
+                #--- filtering
+                pup_f[mask] = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))[mask]
+                
+                #--- defocusing
+                pup_f_pha = np.angle(pup_f)
+                pup_d     = abs(pup_f)*np.exp(1j*(pup_f_pha+Dpha))
+                
+                ## error (mag) computed in focal plane
+                err_ =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
+                if err_ < err:
+                    ## updating best-fit
+                    temp_best_pup = pup_f
+                    temp_best_pud = pup_d
+                err = err_
+            
+                if i%100==0:
+                    print 'Current step                    : {0}'.format(i)
+                    print 'Error (of focused Fourier plane): {0:.2e}'.format(err)
+            
+                err_list.append(err)
+                
+                i += 1
+               
+            ## new initial input for next step
+            pup_f = temp_best_pup
+            pup_d = temp_best_pud
+            itr += 1
+            
+            ## maximal iteration
+            if i >= iterlim:
+                break
+                
+        print '-----------------------'
+        print 'First iteration error: {0:.2e}'.format(err_list[0])
+        print 'Final step : {0}'.format(i)
+        print 'Final Error: {0:.2e}'.format(err)
+        
+        pup_f_proj,_ = projection(pup_f,self.support,cons_type=cons_type)
+        return pup_f, foc_f, err_list, pup_f_proj
     
     #############################        
     def _gen_supp(self):
@@ -709,6 +859,36 @@ class PR(object):
             return Idxcmask(Npix=self.npix)
         else:
             raise NameError('No such support type')
+            
+    def _gen_alpha(self,alpha_par,iterlim):
+        """ 
+        Generator for gradual (linearly changing) smoothing
+        Called by `OSS` and `PD_ER_smoothing`
+        """
+        if alpha_par==None:
+            sca_lar = self.N_pix
+            sca_sml = 1/self.N_pix
+            alpha_steps = 10
+        else:
+            sca_lar = alpha_par[0]
+            sca_sml = alpha_par[1]
+            alpha_steps = alpha_par[2]
+            
+        alpha = np.linspace(sca_lar,sca_sml,alpha_steps)
+        if iterlim%alpha_steps:
+            raise ValueError('Steps for alpha must be a divisor of total number of iterations')
+        chunk = int(iterlim/alpha_steps)
+        
+        ## filter
+        grid_x,grid_y = np.ogrid[-(self.N_pix-1)/2:(self.N_pix+1)/2,
+                                 -(self.N_pix-1)/2:(self.N_pix+1)/2]
+        grid_r = np.sqrt(grid_x**2+grid_y**2)
+        
+        filter_gauss = []
+        for alp in alpha:
+            filter_gauss.append(np.exp(-0.5*(grid_r/alp)**2))
+        
+        return chunk,filter_gauss
 
 ############################################################################
 def projection(inarray,support,cons_type='support',pad=0):
@@ -753,7 +933,8 @@ def projection(inarray,support,cons_type='support',pad=0):
         arr[mask] = 0
         return arr, mask
     
-def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,mod2pi=False):
+def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,
+               mod2pi=False,fint_vmin=36,fint_vmax=36):
     """
     Juxtaposing true/reconstructed amplitude/phase images
     
@@ -764,6 +945,13 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,mod2pi=False):
     - rec_pup_, rec_foc_: np.2darrays
       Reconstructed pupil (object-domain) and focal plane (Fourier-domain) images.
       In complex form. Obtained via the `PR` class
+      
+    Options
+    - mod2pi: boolean
+      Display the phases in 0--2pi or not
+    - fint_vmin,fint_vmax: integers
+      Where to zoom-in in the Fourier plane for intensity
+      Given in pixels away from the center
     """
     ## true
     A = abs(true_pup)
@@ -800,12 +988,14 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,mod2pi=False):
         plt.show()
     
     ###
+    crx,cry = (B.shape[0]-1)/2, (B.shape[1]-1)/2
+    #----
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(B**2,origin='lower')#,norm=LogNorm())
-    plt.xlim(220,292); plt.ylim(220,292)
+    plt.xlim(crx-fint_vmax,crx+fint_vmax); plt.ylim(cry-fint_vmax,cry+fint_vmax)
     plt.title('Intensity - True focal image'); plt.colorbar()
     plt.subplot(122); plt.imshow(rec_foc**2,origin='lower')#,norm=LogNorm())
-    plt.xlim(220,292); plt.ylim(220,292)
+    plt.xlim(crx-fint_vmax,crx+fint_vmax); plt.ylim(cry-fint_vmax,cry+fint_vmax)
     plt.title('Intensity - Reconstructed'); plt.colorbar()
     plt.show()
 
