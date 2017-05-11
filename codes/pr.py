@@ -593,7 +593,7 @@ class PR(object):
             threshold = None
         
         ## smoothing functions
-        chunk, filter_gauss = self._gen_alpha(self,alpha_par)
+        chunk, filter_gauss = self._gen_alpha(alpha_par,iterlim)
         
         ## intensity to amplitude
         image = self.foc
@@ -787,9 +787,6 @@ class PR(object):
             plt.clim(0,1); plt.colorbar(); plt.show()
             
             for j in range(chunk):
-                ## Object-domain constraints
-                pup_f,_ = projection(pup_f,self.support,cons_type=cons_type)
-                pup_d,_ = projection(pup_d,self.support,cons_type=cons_type)
                 foc_f   = fftshift(fft2(pup_f))
                 foc_d   = fftshift(fft2(pup_d))
                 ## Fourier constraint
@@ -808,8 +805,8 @@ class PR(object):
             
                 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
                 #--- smoothing in "averaged" image 
-                pu2,mask = projection(pup_f,self.support,cons_type=cons_type)
-                pup_f[mask] = 0 ## ER
+                ## ER
+                pup_f,mask = projection(pup_f,self.support,cons_type=cons_type)
                 
                 #--- filtering
                 pup_f[mask] = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))[mask]
@@ -934,7 +931,9 @@ def projection(inarray,support,cons_type='support',pad=0):
         return arr, mask
     
 def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,
-               mod2pi=False,fint_vmin=36,fint_vmax=36):
+               mod2pi=False,fint_vmin=36,fint_vmax=36,
+               max_abrAmp=0.2,max_abrPha=0.2,
+               recons_clim=False):
     """
     Juxtaposing true/reconstructed amplitude/phase images
     
@@ -967,17 +966,25 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,
     
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(A,origin='lower')
+    plt.clim(1-max_abrAmp,1+max_abrAmp)
     plt.title('Amplitude - True pupil image'); plt.colorbar()
     plt.subplot(122); plt.imshow(rec_pup,origin='lower')
     plt.title('Amplitude - Reconstructed'); plt.colorbar()
+    if recons_clim==True:
+        plt.clim(1-max_abrAmp,1+max_abrAmp)
     plt.show()
     
     if mod2pi==False:
         plt.figure(figsize=(16,8))
         plt.subplot(121); plt.imshow(Apha,origin='lower')
         plt.title('Phase - True pupil image'); plt.colorbar()
+        plt.clim(1-max_abrPha,1+max_abrPha)
         plt.subplot(122); plt.imshow(rec_puppha,origin='lower')
         plt.title('Phase - Reconstructed'); plt.colorbar()
+        if recons_clim==True:
+            cr = int(rec_puppha.shape[0]/2)
+            med = np.median(rec_puppha[cr-50:cr+50,cr-50:cr+50])
+            plt.clim(med-max_abrPha,med+max_abrPha)
         plt.show()
     else:
         plt.figure(figsize=(16,8))
@@ -1014,7 +1021,9 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,
         plt.title('Phase - Reconstructed'); plt.colorbar()
         plt.show()
 
-def plot_phase_residual(true_pup,true_foc,rec_pup_,rec_foc_):
+def plot_phase_residual(true_pup,true_foc,
+                        rec_pup_,rec_foc_,
+                        clim=True):
     ## true
     Apha = np.angle(true_pup)
     Bpha = np.angle(true_foc)
@@ -1029,6 +1038,10 @@ def plot_phase_residual(true_pup,true_foc,rec_pup_,rec_foc_):
     plt.figure(figsize=(16,8))
     plt.subplot(121); plt.imshow(pup_diff,origin='lower')
     plt.title('Pupil plane phase diff.')
+    if clim==True:
+        ## some range for clim
+        cr = int(pup_diff.shape[0]/2)
+        plt.clim(pup_diff[cr,cr]-0.2,pup_diff[cr,cr]+0.2)
     clb = plt.colorbar(); clb.ax.set_title('rad')
     plt.subplot(122); plt.imshow(foc_diff,origin='lower')
     plt.title('Focal plane phase diff.')
