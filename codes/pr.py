@@ -34,17 +34,18 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     zerP = Zernike(coeff=coeff1,Npix=Npix)
     zerF = Zernike(coeff=coeff2,Npix=Npix)
     
-    Pamp = abs(zerP.crCartAber(plot=False))
+    Pam_ = zerP.crCartAber(plot=False)
+    Pamp = abs(Pam_)
     Ppha = zerF.crCartAber(plot=False)
 
     #-- maximum
-    Pamp *= max_aberA/(np.max(Pamp)+1e-10)
+    Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
     Ppha *= max_aberP/(np.max(Ppha)+1e-10)
     
-    Pamp += fullcmask(np.ones((Npix,Npix)))
+    Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
     
-    P_ = Pamp*np.exp(1j*Ppha)
+    P_ = Pam_*np.exp(1j*Ppha)
     
     
     ## oversampling (zero-padding)
@@ -96,20 +97,21 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     zerF = Zernike(coeff=coeff2,Npix=Npix)
     zerD = Zernike(coeff=coeff3,Npix=Npix)
     
-    Pamp = abs(zerP.crCartAber(plot=False))
+    Pam_ = zerP.crCartAber(plot=False)
+    Pamp = abs(Pam_)
     Ppha = zerF.crCartAber(plot=False)
     Dpha = zerD.crCartAber(plot=False)
     
     #-- maximum
-    Pamp *= max_aberA/(np.max(Pamp)+1e-10)
+    Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
     Ppha *= max_aberP/(np.max(Ppha)+1e-10)
     
-    Pamp += fullcmask(np.ones((Npix,Npix)))
+    Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
     Dpha += fullcmask(np.ones((Npix,Npix)))
     
-    P_ = Pamp*np.exp(1j*Ppha)
-    D_ = Pamp*np.exp(1j*Dpha)
+    P_ = Pam_*np.exp(1j*Ppha)
+    D_ = Pam_*np.exp(1j*Dpha)
     
     #-- oversampling (zero-padding)
     npix = Pamp.shape[0]
@@ -263,7 +265,7 @@ class PR(object):
             err_list.append(err)
         
             ## maximum iterations
-            if i >= 500:
+            if i >= 1000:
                 break
             
         print 'Final step : {0}'.format(i)
@@ -628,8 +630,6 @@ class PR(object):
             ## iteration limit
             threshold = 1e-15
         while err > threshold:
-            ## 'best-fit' in each step
-            temp_best_pup = None
             print 'Current filter:'
             plt.figure(figsize=(6,6))
             plt.imshow(filter_gauss[itr],cmap='gray',origin='lower'); 
@@ -779,16 +779,14 @@ class PR(object):
             ## iteration limit
             threshold = 1e-15
         while err > threshold:
-            ## 'best-fit' in each step
-            temp_best_pup = None
             print 'Current filter:'
             plt.figure(figsize=(6,6))
             plt.imshow(filter_gauss[itr],cmap='gray',origin='lower'); 
             plt.clim(0,1); plt.colorbar(); plt.show()
             
             for j in range(chunk):
-                foc_f   = fftshift(fft2(pup_f))
-                foc_d   = fftshift(fft2(pup_d))
+                foc_f = fftshift(fft2(pup_f))
+                foc_d = fftshift(fft2(pup_d))
                 ## Fourier constraint
                 fo_f2 = img_foc * (foc_f/abs(foc_f))
                 fo_d2 = img_def * (foc_d/abs(foc_d))
@@ -798,7 +796,7 @@ class PR(object):
                 #--- refocusing
                 pup_d_pha = np.angle(pup_d)
                 pup_d_ref = abs(pup_d)*np.exp(1j*(pup_d_pha-Dpha))
-            
+                
                 ## averaging
                 pup_f =           ( abs(pup_f)     +abs(pup_d_ref)     )/2 * \
                         np.exp(1j*((np.angle(pup_f)+np.angle(pup_d_ref))/2))
@@ -837,7 +835,7 @@ class PR(object):
             itr += 1
             
             ## maximal iteration
-            if i >= iterlim:
+            if i >= iterlim-chunk:
                 break
                 
         print '-----------------------'
