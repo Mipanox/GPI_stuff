@@ -210,7 +210,7 @@ class PR(object):
         self.foc_foc = foc_defoc[0]
         self.foc_def = foc_defoc[1]
     
-    def GS(self,init='random',threshold=None):
+    def GS(self,init='random',threshold=None,iterlim=1000):
         """
         Original two-image Gerchberg-Saxton algorithm
         """
@@ -240,7 +240,7 @@ class PR(object):
         plt.title('Initial Phase'); plt.show()
     
         ##
-        i = 1
+        i = 0
         pup_sum = np.sum(pup)
         
         err_list = []
@@ -265,7 +265,7 @@ class PR(object):
             err_list.append(err)
         
             ## maximum iterations
-            if i >= 1000:
+            if i >= iterlim:
                 break
             
         print 'Final step : {0}'.format(i)
@@ -784,6 +784,7 @@ class PR(object):
             plt.imshow(filter_gauss[itr],cmap='gray',origin='lower'); 
             plt.clim(0,1); plt.colorbar(); plt.show()
             
+            err_step = 1e10
             for j in range(chunk):
                 foc_f = fftshift(fft2(pup_f))
                 foc_d = fftshift(fft2(pup_d))
@@ -815,10 +816,11 @@ class PR(object):
                 
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
-                if err_ < err:
+                if err_ < err_step:
                     ## updating best-fit
                     temp_best_pup = pup_f
                     temp_best_pud = pup_d
+                    err_step = err_
                 err = err_
             
                 if i%100==0:
@@ -835,7 +837,7 @@ class PR(object):
             itr += 1
             
             ## maximal iteration
-            if i >= iterlim-chunk:
+            if i >= iterlim:
                 break
                 
         print '-----------------------'
