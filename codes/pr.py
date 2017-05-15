@@ -300,6 +300,9 @@ class PR(object):
             print 'Caution: Pupil image is not used for constraints.'
             print '         This is one-image process.'
             
+            true_pup = np.sqrt(self.pup)
+            tpup_sum = np.sum(true_pup)
+            
         ## intensity to amplitude
         image = self.foc
         img = np.sqrt(image)
@@ -328,7 +331,7 @@ class PR(object):
         i = 1
         img_sum = np.sum(img)
     
-        err_list = []
+        err_list,err_pup = [],[]
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
@@ -348,6 +351,11 @@ class PR(object):
                 print '        Error: {0:.2e}'.format(err)
             
             err_list.append(err)
+            
+            if true_pup is not None:
+                err_p = np.sqrt(np.sum((abs(pup)-true_pup)**2)) / tpup_sum
+                err_pup.append(err_p)
+                
             ## maximal iteration
             if i >= iterlim:
                 break
@@ -356,7 +364,7 @@ class PR(object):
         print 'Final step : {0}'.format(i)
         print 'Final Error: {0:.2e}'.format(err)
         
-        return pup, foc, err_list
+        return pup, foc, err_list, err_pup
 
     def HIO(self,beta,init='random',cons_type='support',
            threshold=None,iterlim=500):
@@ -375,6 +383,9 @@ class PR(object):
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             print '         This is one-image process.'
+            
+            true_pup = np.sqrt(self.pup)
+            tpup_sum = np.sum(true_pup)
             
         ## intensity to amplitude
         image = self.foc
@@ -404,7 +415,7 @@ class PR(object):
         i = 1
         img_sum = np.sum(img)
     
-        err_list = []
+        err_list,err_pup = [],[]
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
@@ -423,6 +434,11 @@ class PR(object):
         
             ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
+            
+            if true_pup is not None:
+                err_p = np.sqrt(np.sum((abs(pup)-true_pup)**2)) / tpup_sum
+                err_pup.append(err_p)
+            
             i += 1
             if i%100==0:
                 print 'Current step : {0}'.format(i)
@@ -437,11 +453,13 @@ class PR(object):
         print 'Final step : {0}'.format(i)
         print 'Final Error: {0:.2e}'.format(err)
         
-        return pup, foc, err_list   
+        return pup, foc, err_list, err_pup  
             
     def PD_ER(self,defocus,init='random',
               cons_type='support',
-              threshold=None,iterlim=500,true_phasorP=None,true_phasorF=None):
+              threshold=None,iterlim=500,
+              true_phasorP=None,true_phasorF=None,
+              force_only_phase=False):
         """
         Phase diversity with error reduction implementation
         Two images. One on focus the other out of focus
@@ -457,6 +475,9 @@ class PR(object):
         """
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
+            
+            true_pup = np.sqrt(self.pup)
+            tpup_sum = np.sum(true_pup)
             
         try:
             foc_foc = self.foc_foc
@@ -513,7 +534,7 @@ class PR(object):
         i = 1
         img_sum = np.sum(img_foc)
     
-        err_list = []
+        err_list,err_pup = [],[]
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
@@ -537,6 +558,14 @@ class PR(object):
             pup_f = (abs(pup_f)+abs(pup_d_ref))/2 * \
                     np.exp(1j*((np.angle(pup_d_ref)+np.angle(pup_f))/2))
             
+            ## forcing only phase aberration
+            #-- i.e. another constraint on amplitude
+            if force_only_phase==True:
+                ### now (temporarily) set to the true amplitude
+                pup_f_amp = true_pup
+                pup_f_pha = np.angle(pup_f)
+                pup_f = true_pup*np.exp(1j*pup_f_pha)
+            
             ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
             
@@ -545,6 +574,10 @@ class PR(object):
                 print 'Error (of focused Fourier plane): {0:.2e}'.format(err)
             
             err_list.append(err)
+            
+            if true_pup is not None:
+                err_p = np.sqrt(np.sum((abs(pup_f)-true_pup)**2)) / tpup_sum
+                err_pup.append(err_p)
             
             #--- defocusing
             pup_f_pha = np.angle(pup_f)
@@ -562,10 +595,12 @@ class PR(object):
         print 'Final Error: {0:.2e}'.format(err)
         
         pup_f_proj,_ = projection(pup_f,self.support,cons_type=cons_type)
-        return pup_f, foc_f, err_list, pup_f_proj
+        return pup_f, foc_f, err_list, pup_f_proj, err_pup
     
-    def OSS(self,beta,alpha_par=None,init='random',cons_type='support',
-            threshold=None,iterlim=2000):
+    def OSS(self,beta,alpha_par=None,
+            init='random',cons_type='support',
+            threshold=None,iterlim=2000,
+            force_only_phase=False):
         """
         Oversampling smoothness incorporating HIO.
         First guess is determined by the amplitude of 
@@ -588,6 +623,9 @@ class PR(object):
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             print '         This is one-image process.'
+            
+            true_pup = np.sqrt(self.pup)
+            tpup_sum = np.sum(true_pup)
         
         if threshold is not None: 
             print '-'*30
@@ -625,7 +663,7 @@ class PR(object):
         i,itr = 0,0
         img_sum = np.sum(img)
     
-        err_list = []
+        err_list,err_pup = [],[]
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
@@ -651,6 +689,14 @@ class PR(object):
                 #--- filtering
                 pup[mask] = ifft2(ifftshift(fftshift(fft2(pup))*filter_gauss[itr]))[mask]
                 
+                ## forcing only phase aberration
+                #-- i.e. another constraint on amplitude
+                if force_only_phase==True:
+                    ### now (temporarily) set to the true amplitude
+                    pup_amp = true_pup
+                    pup_pha = np.angle(pup)
+                    pup = true_pup*np.exp(1j*pup_pha)
+                
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
                 if err_ < err:
@@ -664,6 +710,11 @@ class PR(object):
                     print '        Error : {0:.2e}'.format(err)
         
                 err_list.append(err)
+            
+                if true_pup is not None:
+                    err_p = np.sqrt(np.sum((abs(pup)-true_pup)**2)) / tpup_sum
+                    err_pup.append(err_p)
+            
             ## new initial input for next step
             pup  = temp_best_pup
             itr += 1
@@ -677,13 +728,14 @@ class PR(object):
         print 'Final Error: {0:.2e}'.format(err)
         
         pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
-        return pup, foc, err_list, pup_proj
+        return pup, foc, err_list, pup_proj, err_pup
 
     
     def PD_ER_smoothing(self,defocus,alpha_par=None,
                         init='random',cons_type='support',
                         threshold=None,iterlim=2000,
-                        true_phasorP=None,true_phasorF=None):
+                        true_phasorP=None,true_phasorF=None,
+                        force_only_phase=False):
         """
         Phase diversity with error reduction implementation
         and gradual smoothing in the Fourier domain
@@ -710,6 +762,9 @@ class PR(object):
         """
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
+            
+            true_pup = np.sqrt(self.pup)
+            tpup_sum = np.sum(true_pup)
             
         if threshold is not None: 
             print '-'*30
@@ -774,7 +829,7 @@ class PR(object):
         i,itr = 0,0
         img_sum = np.sum(img_foc)
     
-        err_list = []
+        err_list,err_pup = [],[]
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
@@ -814,6 +869,14 @@ class PR(object):
                 pup_f_pha = np.angle(pup_f)
                 pup_d     = abs(pup_f)*np.exp(1j*(pup_f_pha+Dpha))
                 
+                ## forcing only phase aberration
+                #-- i.e. another constraint on amplitude
+                if force_only_phase==True:
+                    ### now (temporarily) set to the true amplitude
+                    pup_f_amp = true_pup
+                    pup_f_pha = np.angle(pup_f)
+                    pup_f = true_pup*np.exp(1j*pup_f_pha)
+                
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
                 if err_ < err_step:
@@ -828,6 +891,10 @@ class PR(object):
                     print 'Error (of focused Fourier plane): {0:.2e}'.format(err)
             
                 err_list.append(err)
+                
+                if true_pup is not None:
+                    err_p = np.sqrt(np.sum((abs(pup_f)-true_pup)**2)) / tpup_sum
+                    err_pup.append(err_p_p)
                 
                 i += 1
                
@@ -846,7 +913,7 @@ class PR(object):
         print 'Final Error: {0:.2e}'.format(err)
         
         pup_f_proj,_ = projection(pup_f,self.support,cons_type=cons_type)
-        return pup_f, foc_f, err_list, pup_f_proj
+        return pup_f, foc_f, err_list, pup_f_proj, err_pup
     
     #############################        
     def _gen_supp(self):
@@ -1048,13 +1115,16 @@ def plot_phase_residual(true_pup,true_foc,
     clb = plt.colorbar(); clb.ax.set_title('rad')
     plt.show()
     
-def plot_errlist(errlist,logy=False,loglog=True):
+def plot_errlist(errlist,errpuplist=None,logy=False,loglog=True):
     """ 
     Plot the evolution of error (convergence) 
     
     Inputs
     - errlist: list of floats
       The recorded error from one of the PR algorithms
+    - errpuplist: list of floats
+      The recorded error in the pupil plane. 
+      This would be `None` if run in real situations
       
     Options
     - logy: boolean
@@ -1063,12 +1133,33 @@ def plot_errlist(errlist,logy=False,loglog=True):
       Plot in log-log scale. If `True`, ignore `logy`
       Defaults to True
     """
+    if errpuplist is not None:
+        plt.figure(figsize=(24,8))
+        plt.subplot(121)
+        plt.plot(errlist,'b',lw=10)
+        if logy==True:
+            plt.yscale('log')
+        if loglog==True:
+            plt.xscale('log'); plt.yscale('log')
+        plt.xlabel('Iteration (#)'); plt.ylabel('Rms error (fraction)')
+        plt.title('Error in focal plane')
+        
+        plt.subplot(122)
+        plt.plot(errpuplist,'b',lw=10)
+        if logy==True:
+            plt.yscale('log')
+        if loglog==True:
+            plt.xscale('log'); plt.yscale('log')
+        plt.xlabel('Iteration (#)'); plt.ylabel('Rms error (fraction)')
+        plt.title('Error in pupil plane')
+        plt.show()
     
-    plt.figure(figsize=(12,8))
-    plt.plot(errlist,'b',lw=10)
-    if logy==True:
-        plt.yscale('log')
-    if loglog==True:
-        plt.xscale('log'); plt.yscale('log')
-    plt.xlabel('Iteration (#)'); plt.ylabel('Rms error (fraction)')
-    plt.show()
+    else:
+        plt.figure(figsize=(12,8))
+        plt.plot(errlist,'b',lw=10)
+        if logy==True:
+            plt.yscale('log')
+        if loglog==True:
+            plt.xscale('log'); plt.yscale('log')
+        plt.xlabel('Iteration (#)'); plt.ylabel('Rms error (fraction)')
+        plt.show()
