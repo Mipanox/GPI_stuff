@@ -894,7 +894,7 @@ class PR(object):
                 
                 if true_pup is not None:
                     err_p = np.sqrt(np.sum((abs(pup_f)-true_pup)**2)) / tpup_sum
-                    err_pup.append(err_p_p)
+                    err_pup.append(err_p)
                 
                 i += 1
                
