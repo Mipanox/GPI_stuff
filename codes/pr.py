@@ -472,6 +472,16 @@ class PR(object):
           focal point deviation from the focal point. 
           Unit in fraction of aperture diameter.
           No default. Should be the same as the true inputs
+          
+        Options
+        - true_phasorP, true_phasorF: np.2darrays
+          True complex arrays for pupil and focal plane images.
+          Used when testing: `init='random'`
+        - force_only_phase: boolean
+          An additional constraint on pupil plane amplitude
+          If True, the amplitude is set to be the true one.
+          [Not sure how to do this (forcing to be uniform)]
+          [when true image is unknown yet]
         """
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
@@ -616,7 +626,7 @@ class PR(object):
           If `None` (default), taken to be [N_pix,1/N_pix,10]
       
         Options
-         see descriptions in `ER`
+         see descriptions in `ER` and `PD_ER`
          Note: due to the nature of scaling (alpha), 
          one cannot set threshold (keep it `None`)
         """
@@ -735,7 +745,8 @@ class PR(object):
                         init='random',cons_type='support',
                         threshold=None,iterlim=2000,
                         true_phasorP=None,true_phasorF=None,
-                        force_only_phase=False):
+                        force_only_phase=False,
+                        smoo_in=False):
         """
         Phase diversity with error reduction implementation
         and gradual smoothing in the Fourier domain
@@ -759,6 +770,11 @@ class PR(object):
           The starting (largest) scale, the final (smallest) scale,
           and the number of steps at each scale.
           If `None` (default), taken to be [N_pix,1/N_pix,10]
+          
+        Options
+        - smoo_in: boolean
+          Do the gradual smoothing in all the image plane,
+          including within the support or not.
         """
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
@@ -770,6 +786,10 @@ class PR(object):
             print '-'*30
             print 'Cannot set error threshold. Changed to `None`'
             threshold = None
+        
+        print '=-'*20
+        if smoo_in==False: print 'Gradual filtering done outside the support'
+        else: print 'Gradual filtering done in the whole plane'
             
         ##     
         try:
@@ -857,13 +877,16 @@ class PR(object):
                 pup_f =           ( abs(pup_f)     +abs(pup_d_ref)     )/2 * \
                         np.exp(1j*((np.angle(pup_f)+np.angle(pup_d_ref))/2))
             
-                #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-                #--- smoothing in "averaged" image 
                 ## ER
                 pup_f,mask = projection(pup_f,self.support,cons_type=cons_type)
                 
-                #--- filtering
-                pup_f[mask] = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))[mask]
+                #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+                #--- smoothing in "averaged" image 
+                ## 
+                if smoo_in==False:
+                    pup_f[mask] = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))[mask]
+                else:
+                    pup_f = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))
                 
                 #--- defocusing
                 pup_f_pha = np.angle(pup_f)
