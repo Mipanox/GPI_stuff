@@ -800,6 +800,7 @@ class PR(object):
                              by calling the object')
         ## smoothing functions
         chunk, filter_gauss = self._gen_alpha(alpha_par,iterlim)
+        if smoo_in==True: chunk = chunk-1 ## avoid last extreme filtering
         #--------------------------
         ## intensity to amplitude
         img_foc = np.sqrt(foc_foc)
