@@ -12,7 +12,8 @@ from zernike import *
 from skimage.restoration import unwrap_phase
 
 def true_imgs(Npix,coeff1,coeff2,oversamp=1,
-              max_aberA=0.2,max_aberP=0.2):
+              max_aberA=0.2,max_aberP=0.2,
+              noise_level=0.):
     """
     Generate true images (both domains)
     for a given size in combined Zernike modes
@@ -62,6 +63,15 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     Famp = abs(F_)
     Fpha = np.arctan2(F_.imag,F_.real)
     F = Famp**2
+    
+    ## noise only in measured PSF
+    #-- fraction of the peak
+    Fpeak = np.max(F)
+    gau_n = abs(Fpeak*np.random.randn(Npix,Npix)*noise_level)
+    
+    F += gau_n
+    Famp = np.sqrt(F)
+    F_ = Famp* F_/abs(F_)
     
     return P,P_,F,F_
 
@@ -800,7 +810,6 @@ class PR(object):
                              by calling the object')
         ## smoothing functions
         chunk, filter_gauss = self._gen_alpha(alpha_par,iterlim)
-        if smoo_in==True: chunk = chunk-1 ## avoid last extreme filtering
         #--------------------------
         ## intensity to amplitude
         img_foc = np.sqrt(foc_foc)
@@ -887,7 +896,7 @@ class PR(object):
                 if smoo_in==False:
                     pup_f[mask] = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))[mask]
                 else:
-                    pup_f = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))
+                    pup_f = ifft2(ifftshift(fftshift(fft2(pup_f))*filter_gauss[itr]))                    
                 
                 #--- defocusing
                 pup_f_pha = np.angle(pup_f)
@@ -928,6 +937,8 @@ class PR(object):
             itr += 1
             
             ## maximal iteration
+            if smoo_in==True:
+                if i >= iterlim-200: break
             if i >= iterlim:
                 break
                 
