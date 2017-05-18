@@ -29,7 +29,8 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     - oversamp: see the `PR` class. Should be the same
     - max_aberA, max_aberP: positive floats
       Maximum variations of the aberration in
-      amplitude and phase respectively
+      amplitude and phase respectively.
+      For phase, it's the fraction of a full wave
     """
     ## set up object domain (pupil plane) image
     zerP = Zernike(coeff=coeff1,Npix=Npix)
@@ -41,7 +42,7 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
 
     #-- maximum
     Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
-    Ppha *= max_aberP/(np.max(Ppha)+1e-10)
+    Ppha *= max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
     
     Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
@@ -114,7 +115,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     
     #-- maximum
     Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
-    Ppha *= max_aberP/(np.max(Ppha)+1e-10)
+    Ppha *= max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
     
     Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
@@ -377,7 +378,7 @@ class PR(object):
         return pup, foc, err_list, err_pup
 
     def HIO(self,beta,init='random',cons_type='support',
-           threshold=None,iterlim=500):
+           threshold=None,iterlim=500,force_only_phase=False):
         """
         Hybrid Input-Output algorithm
         First guess is determined by the amplitude of 
@@ -411,7 +412,10 @@ class PR(object):
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
-        pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
+        if force_only_phase==True:
+            pup = true_pup*np.exp(1j*pha)
+        else:
+            pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
         pup_ = abs(pup)
     
         ## initial states
@@ -441,6 +445,12 @@ class PR(object):
 
             ## HIO
             pup[mask] = pup_old[mask]-beta*pup[mask]
+            
+            ##
+            if force_only_phase==True:                
+                pup_amp = true_pup
+                pup_pha = np.angle(pup)
+                pup = true_pup*np.exp(1j*pup_pha)
         
             ## error (mag) computed in focal plane
             err =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
@@ -463,7 +473,8 @@ class PR(object):
         print 'Final step : {0}'.format(i)
         print 'Final Error: {0:.2e}'.format(err)
         
-        return pup, foc, err_list, err_pup  
+        pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
+        return pup, foc, err_list, pup_proj, err_pup  
             
     def PD_ER(self,defocus,init='random',
               cons_type='support',
@@ -1076,6 +1087,7 @@ def plot_recon(true_pup,true_foc,rec_pup_,rec_foc_,
         plt.clim(1-max_abrAmp,1+max_abrAmp)
     plt.show()
     
+    max_abrPha *= 2*np.pi
     if mod2pi==False:
         plt.figure(figsize=(16,8))
         plt.subplot(121); plt.imshow(Apha,origin='lower')
@@ -1143,7 +1155,7 @@ def plot_phase_residual(true_pup,true_foc,
     if clim==True:
         ## some range for clim
         cr = int(pup_diff.shape[0]/2)
-        plt.clim(pup_diff[cr,cr]-0.2,pup_diff[cr,cr]+0.2)
+        #plt.clim(pup_diff[cr,cr]-0.2,pup_diff[cr,cr]+0.2)
     clb = plt.colorbar(); clb.ax.set_title('rad')
     plt.subplot(122); plt.imshow(foc_diff,origin='lower')
     plt.title('Focal plane phase diff.')
