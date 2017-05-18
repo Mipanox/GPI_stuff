@@ -506,7 +506,6 @@ class PR(object):
         """
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
-            
             true_pup = np.sqrt(self.pup)
             tpup_sum = np.sum(true_pup)
             
@@ -549,8 +548,12 @@ class PR(object):
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
-        pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
-        pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
+        if force_only_phase==True:
+            pup_f = true_pup*np.exp(1j*pha_f)
+            pup_d = true_pup*np.exp(1j*pha_d)
+        else:
+            pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
+            pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
         pup_f_ = abs(pup_f)
         pup_d_ = abs(pup_d)
         
@@ -680,7 +683,10 @@ class PR(object):
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
-        pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
+        if force_only_phase==True:
+            pup = true_pup*np.exp(1j*pha)
+        else:
+            pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
         pup_ = abs(pup)
     
         ## initial states
@@ -854,8 +860,12 @@ class PR(object):
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
-        pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
-        pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
+        if force_only_phase==True:
+            pup_f = true_pup*np.exp(1j*pha_f)
+            pup_d = true_pup*np.exp(1j*pha_d)
+        else:
+            pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
+            pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
         pup_f_ = abs(pup_f)
         pup_d_ = abs(pup_d)
         
