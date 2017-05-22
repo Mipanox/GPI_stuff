@@ -634,7 +634,8 @@ class PR(object):
     def OSS(self,beta,alpha_par=None,
             init='random',cons_type='support',
             threshold=None,iterlim=2000,
-            force_only_phase=False):
+            force_only_phase=False,
+            true_phasorP=None,true_phasorF=None):
         """
         Oversampling smoothness incorporating HIO.
         First guess is determined by the amplitude of 
@@ -679,12 +680,25 @@ class PR(object):
             pha = np.random.random(img.shape) * 2*np.pi
         elif init=='uniform':
             pha = np.ones(img.shape)
+            
+        ######### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        elif init=='test':
+            pha_p = np.angle(true_phasorP) + \
+                    np.random.random(img.shape)*1e-10
+            pha_f = np.angle(true_phasorF) + \
+                    np.random.random(img.shape)*1e-10
         else:
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
         if force_only_phase==True:
-            pup = true_pup*np.exp(1j*pha)
+            # pup = true_pup*np.exp(1j*pha)
+            #-------------------------------------   !!!!!! initial guess in image plane !!!
+            coeff = np.random.random(35)
+            zerI = Zernike(coeff=coeff,Npix=self.npix)
+            Ipha = zerI.crCartAber(plot=False)
+            Ipha = pad_array(Ipha,self.N_pix,pad=0)
+            pup = true_pup*np.exp(1j*Ipha)
         else:
             pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
         pup_ = abs(pup)
@@ -693,7 +707,7 @@ class PR(object):
         plt.figure(figsize=(16,8))
         plt.subplot(121); plt.imshow(pup_,origin='lower')
         plt.title('Initial guess Amplitude')
-        plt.subplot(122); plt.imshow(pha,origin='lower')
+        plt.subplot(122); plt.imshow(Ipha,origin='lower') #################### changed here
         plt.title('Initial Phase'); plt.show()
     
         #------------------------------
@@ -701,6 +715,11 @@ class PR(object):
         img_sum = np.sum(img)
     
         err_list,err_pup = [],[]
+        ########### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        pha_sum = np.sum(pha_p)
+        err_pha_pup = []
+        ######
+        
         if threshold is None: 
             ## iteration limit
             threshold = 1e-15
@@ -748,6 +767,11 @@ class PR(object):
         
                 err_list.append(err)
             
+                ######### !!!!!!!!!!!!!!!!!
+                err_pha = np.sqrt(np.sum((np.angle(pup)-pha_p)**2))/pha_sum
+                err_pha_pup.append(err_pha)
+                #######
+                
                 if true_pup is not None:
                     err_p = np.sqrt(np.sum((abs(pup)-true_pup)**2)) / tpup_sum
                     err_pup.append(err_p)
@@ -765,7 +789,7 @@ class PR(object):
         print 'Final Error: {0:.2e}'.format(err)
         
         pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
-        return pup, foc, err_list, pup_proj, err_pup
+        return pup, foc, err_list, pup_proj, err_pup, err_pha_pup
 
     
     def PD_ER_smoothing(self,defocus,alpha_par=None,
@@ -836,7 +860,7 @@ class PR(object):
         err = 1e10
         
         #-- defocusing
-        coeff = [0]*15
+        coeff = [0]*35
         coeff[3] += defocus
         
         zerD = Zernike(coeff=coeff,Npix=self.npix)
@@ -852,17 +876,34 @@ class PR(object):
             pha_d = np.ones(img_foc.shape)
         elif init=='test':
             pha_f = unwrap_phase(np.angle(true_phasorP)) + \
-                    np.random.random(img_foc.shape)*1e-4
+                    np.random.random(img_foc.shape)*1e-10
             pha_d = unwrap_phase(np.angle(true_phasorF)) + \
-                    np.random.random(img_foc.shape)*1e-4
-            iterlim = 1
+                    np.random.random(img_foc.shape)*1e-10
+            #iterlim = 1
         else:
             raise NameError('No such method. Use "random" or "uniform"')
     
         ## initial guess
         if force_only_phase==True:
-            pup_f = true_pup*np.exp(1j*pha_f)
-            pup_d = true_pup*np.exp(1j*pha_d)
+            #pup_f = true_pup*np.exp(1j*pha_f)
+            #pup_d = true_pup*np.exp(1j*pha_d)
+            #-------------------------------------   !!!!!! initial guess in image plane !!!
+            coeff = np.random.random(35)            
+            
+            zerI = Zernike(coeff=coeff,Npix=self.npix)
+            Ipha = zerI.crCartAber(plot=False)
+            Ipha = pad_array(Ipha,self.N_pix,pad=0)
+            pup_f = true_pup*np.exp(1j*Ipha)
+            
+            pup_temp = fftshift(fft2(pup_f))
+            coefd = np.copy(coeff)
+            coefd[3] += defocus 
+            zerD = Zernike(coeff=coefd,Npix=self.npix)
+            Dpha = zerD.crCartAber(plot=False)
+            Dpha = pad_array(Dpha,self.N_pix,pad=0)
+            pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*Dpha))),self.support)
+            
+            
         else:
             pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
             pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
@@ -960,7 +1001,7 @@ class PR(object):
             ## maximal iteration
             if smoo_in==True:
                 if i >= iterlim-200: break
-            if i >= iterlim:
+            elif i >= iterlim:
                 break
                 
         print '-----------------------'
