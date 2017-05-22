@@ -19,16 +19,23 @@ class Zernike(object):
     
     def __init__(self,Z1=0,Z2=0,Z3=0,Z4=0,Z5=0,
                       Z6=0,Z7=0,Z8=0,Z9=0,Z10=0,
-                      Z11=0,Z12=0,Z13=0,Z14=0,Z15=0,Npix=1024,
+                      Z11=0,Z12=0,Z13=0,Z14=0,Z15=0,
+                      Z16=0,Z17=0,Z18=0,Z19=0,Z20=0,
+                      Z21=0,Z22=0,Z23=0,Z24=0,Z25=0,
+                      Z26=0,Z27=0,Z28=0,Z29=0,Z30=0, 
+                      Z31=0,Z32=0,Z33=0,Z34=0,Z35=0, Npix=1024,
                  coeff=None):
         ## coefficients
         if coeff is not None:
-            if len(coeff) != 15:
-                raise IndexError('Length of coefficient list should be 15')
+            if len(coeff) != 35:
+                raise IndexError('Length of coefficient list should be 35')
             self.coeff = coeff
         else:
-            self.coeff = [Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, 
-                          Z9, Z10, Z11, Z12, Z13, Z14, Z15]
+            self.coeff = [Z1,   Z2,  Z3,  Z4,  Z5,  Z6,  Z7, 
+                          Z8,   Z9, Z10, Z11, Z12, Z13, Z14, 
+                          Z15, Z16, Z17, Z18, Z19, Z20, Z21,
+                          Z22, Z23, Z24, Z25, Z26, Z27, Z28,
+                          Z29, Z30, Z31, Z32, Z33, Z34, Z35]
         ## grid size
         self.Npix = Npix
         
@@ -119,9 +126,32 @@ class Zernike(object):
         Z13 =  Z[13] * np.sqrt(10)*(4*r**2-3)*r**2 * np.sin(2*theta)
         Z14 =  Z[14] * np.sqrt(10)*r**4 * np.cos(4*theta)
         Z15 =  Z[15] * np.sqrt(10)*r**4 * np.sin(4*theta)
+        Z16 =  Z[16] * np.sqrt(12)*(10*r**4-12*r**2+3)*r*np.cos(u)
+        Z17 =  Z[17] * np.sqrt(12)*(10*r**4-12*r**2+3)*r*np.sin(u)
+        Z18 =  Z[18] * np.sqrt(12)*(5*r**2-4)*r**3*np.cos(3*u)
+        Z19 =  Z[19] * np.sqrt(12)*(5*r**2-4)*r**3*np.sin(3*u)
+        Z20 =  Z[20] * np.sqrt(12)*r**5*np.cos(5*u)
+        Z21 =  Z[21] * np.sqrt(12)*r**5*np.sin(5*u)
+        Z22 =  Z[22] * np.sqrt(7)*(20*r**6-30*r**4+12*r**2-1)
+        Z23 =  Z[23] * np.sqrt(14)*(15*r**4-20*r**2+6)*r**2*np.sin(2*u)
+        Z24 =  Z[24] * np.sqrt(14)*(15*r**4-20*r**2+6)*r**2*np.cos(2*u)
+        Z25 =  Z[25] * np.sqrt(14)*(6*r**2-5)*r**4*np.sin(4*u)
+        Z26 =  Z[26] * np.sqrt(14)*(6*r**2-5)*r**4*np.cos(4*u)
+        Z27 =  Z[27] * np.sqrt(14)*r**6*np.sin(6*u)
+        Z28 =  Z[28] * np.sqrt(14)*r**6*np.cos(6*u)
+        Z29 =  Z[29] * 4*(35*r**6-60*r**4+30*r**2-4)*r*np.sin(u)
+        Z30 =  Z[30] * 4*(35*r**6-60*r**4+30*r**2-4)*r*np.cos(u)
+        Z31 =  Z[31] * 4*(21*r**4-30*r**2+10)*r**3*np.sin(3*u)
+        Z32 =  Z[32] * 4*(21*r**4-30*r**2+10)*r**3*np.cos(3*u)
+        Z33 =  Z[33] * 4*(7*r**2-6)*r**5*np.sin(5*u)
+        Z34 =  Z[34] * 4*(7*r**2-6)*r**5*np.cos(5*u)
+        Z35 =  Z[35] * 4*r**7*np.sin(7*u)
 
         Z_comb = Z1 + Z2  +  Z3 +  Z4 +  Z5 +  Z6 +  Z7 +  Z8 + \
-                 Z9 + Z10 + Z11 + Z12 + Z13 + Z14 + Z15
+                 Z9 + Z10 + Z11 + Z12 + Z13 + Z14 + Z15 + Z16 + \
+                Z17 + Z18 + Z19 + Z20 + Z21 + Z22 + Z23 + Z24 + \
+                Z25 + Z26 + Z27 + Z28 + Z29 + Z30 + Z31 + Z32 + \
+                Z33 + Z34 + Z35
     
         return Z_comb
 
@@ -159,9 +189,32 @@ class Zernike(object):
         Z13 =  Z[13] * 2*np.sqrt(10)*x*y*(4*r2 - 3)
         Z14 =  Z[14] * np.sqrt(10)*(r2**2 - 8*x**2*y**2)
         Z15 =  Z[15] * 4*np.sqrt(10)*x*y*(x**2 - y**2)
+        Z16 =  Z[16] * np.sqrt(12)*x*(10*r2**2-12*r2+3)
+        Z17 =  Z[17] * np.sqrt(12)*y*(10*r2**2-12*r2+3)
+        Z18 =  Z[18] * np.sqrt(12)*x*(x**2-3*y**2)*(5*r2-4)
+        Z19 =  Z[19] * np.sqrt(12)*y*(3*x**2-y**2)*(5*r2-4)
+        Z20 =  Z[20] * np.sqrt(12)*x*(16*x**4-20*x**2*r2+5*r2**2)
+        Z21 =  Z[21] * np.sqrt(12)*y*(16*y**4-20*y**2*r2+5*r2**2)
+        Z22 =  Z[22] * np.sqrt(7)*(20*r2**3-30*r2**2+12*r2-1)
+        Z23 =  Z[23] * 2*np.sqrt(14)*x*y*(15*r2**2-20*r2+6)
+        Z24 =  Z[24] * np.sqrt(14)*(x**2-y**2)*(15*r2**2-20*r2+6)
+        Z25 =  Z[25] * 4*np.sqrt(14)*x*y*(x**2-y**2)*(6*r2-5)
+        Z26 =  Z[26] * np.sqrt(14)*(8*x**4-8*x**2*r2+r2**2)*(6*r2-5)
+        Z27 =  Z[27] * np.sqrt(14)*x*y*(32*x**4-32*x**2*r2+6*r2**2)
+        Z28 =  Z[28] * np.sqrt(14)*(32*x**6-48*x**4*r2+18*x**2*r2**2-r2**3)
+        Z29 =  Z[29] * 4*y*(35*r2**3-60*r2**2+30*r2-4)
+        Z30 =  Z[30] * 4*x*(35*r2**3-60*r2**2+30*r2-4)
+        Z31 =  Z[31] * 4*y*(3*x**2-y**2)*(21*r2**2-30*r2+10)
+        Z32 =  Z[32] * 4*x*(x**2-3*y**2)*(21*r2**2-30*r2+10)
+        Z33 =  Z[33] * 4*(7*r2-6)*(4*x**2*y*(x**2-y**2)+y*(r2**2-8*x**2*y**2))
+        Z34 =  Z[34] * (4*(7*r2-6)*(x*(r2**2-8*x**2*y**2)-4*x*y**2*(x**2-y**2)))
+        Z35 =  Z[35] * (8*x**2*y*(3*r2**2-16*x**2*y**2)+4*y*(x**2-y**2)*(r2**2-16*x**2*y**2))
 
         Z_comb = Z1 + Z2  +  Z3 +  Z4 +  Z5 +  Z6 +  Z7 +  Z8 + \
-                 Z9 + Z10 + Z11 + Z12 + Z13 + Z14 + Z15
+                 Z9 + Z10 + Z11 + Z12 + Z13 + Z14 + Z15 + Z16 + \
+                Z17 + Z18 + Z19 + Z20 + Z21 + Z22 + Z23 + Z24 + \
+                Z25 + Z26 + Z27 + Z28 + Z29 + Z30 + Z31 + Z32 + \
+                Z33 + Z34 + Z35
     
         return Z_comb
     
