@@ -678,17 +678,19 @@ class PR(object):
     
         ## initialize error and phase
         err = 1e10
+        #--- uniform pupil intensity
+        unf_pup = np.invert(self.support)*1
         if init=='random':
             coeff = np.random.random(35)
             zerI = Zernike(coeff=coeff,Npix=self.npix)
             Ipha = zerI.crCartAber(plot=False)
             Ipha = pad_array(Ipha,self.N_pix,pad=0)
-            pup = true_pup*np.exp(1j*Ipha)
+            pup = unf_pup*np.exp(1j*Ipha)
         elif init=='uniform':
-            pup = true_pup*np.exp(1j*np.ones(img.shape))
-        
+            pup = unf_pup*np.exp(1j*np.ones(img.shape))
         elif init=='test':
             Ipha = np.angle(true_phasorP) + np.random.random(img.shape)*1e-10
+            pup = unf_pup*np.exp(1j*Ipha)
         else:
             raise NameError('No such method. Use "random" or "uniform"')
             
@@ -735,9 +737,8 @@ class PR(object):
                 ## forcing only phase aberration
                 #-- i.e. another constraint on amplitude
                 if force_only_phase==True:
-                    pup_amp = np.invert(np.invert(self.support)*1)
                     pup_pha = np.angle(pup)
-                    pup = true_pup*np.exp(1j*pup_pha)
+                    pup = unf_pup*np.exp(1j*pup_pha)
                 
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
@@ -776,7 +777,7 @@ class PR(object):
     def PD_ER_smoothing(self,defocus,alpha_par=None,
                         init='random',cons_type='support',
                         threshold=None,iterlim=2000,
-                        true_phasorP=None,true_phasorF=None,
+                        true_phasorPf=None,true_phasorPd=None,
                         force_only_phase=False,
                         smoo_in=False):
         """
@@ -837,9 +838,10 @@ class PR(object):
         img_foc = np.sqrt(foc_foc)
         img_def = np.sqrt(foc_def)
     
-        ## initialize error and phase
+        ## initialize error and stuff
         err = 1e10
-        
+        #--- uniform pupil intensity
+        unf_pup = np.invert(self.support)*1
         #-- defocusing
         coeff = [0]*35
         coeff[3] += defocus
@@ -848,55 +850,40 @@ class PR(object):
         Dpha = zerD.crCartAber(plot=False)
         Dpha = pad_array(Dpha,self.N_pix,pad=0)
         
-        ### we don't care about 'defocusing' here
-        if init=='random':
-            pha_f = np.random.random(img_foc.shape) * 2*np.pi
-            pha_d = np.random.random(img_foc.shape) * 2*np.pi
-        elif init=='uniform':
-            pha_f = np.ones(img_foc.shape)
-            pha_d = np.ones(img_foc.shape)
-        elif init=='test':
-            pha_f = unwrap_phase(np.angle(true_phasorP)) + \
-                    np.random.random(img_foc.shape)*1e-10
-            pha_d = unwrap_phase(np.angle(true_phasorF)) + \
-                    np.random.random(img_foc.shape)*1e-10
-            #iterlim = 1
-        else:
-            raise NameError('No such method. Use "random" or "uniform"')
-    
-        ## initial guess
-        if force_only_phase==True:
-            #pup_f = true_pup*np.exp(1j*pha_f)
-            #pup_d = true_pup*np.exp(1j*pha_d)
-            #-------------------------------------   !!!!!! initial guess in image plane !!!
-            coeff = np.random.random(35)            
-            
+        if init=='random' or init=='uniform':
+            if init=='random': coeff = np.random.random(35)            
+            else:              coeff = [0]*35
+            ## phases
             zerI = Zernike(coeff=coeff,Npix=self.npix)
             Ipha = zerI.crCartAber(plot=False)
             Ipha = pad_array(Ipha,self.N_pix,pad=0)
-            pup_f = true_pup*np.exp(1j*Ipha)
             
-            pup_temp = fftshift(fft2(pup_f))
             coefd = np.copy(coeff)
             coefd[3] += defocus 
-            zerD = Zernike(coeff=coefd,Npix=self.npix)
-            Dpha = zerD.crCartAber(plot=False)
-            Dpha = pad_array(Dpha,self.N_pix,pad=0)
-            pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*Dpha))),self.support)
-            
-            
+            zerd = Zernike(coeff=coefd,Npix=self.npix)
+            dpha = zerD.crCartAber(plot=False)
+            dpha = pad_array(dpha,self.N_pix,pad=0)
+        
+        if init=='test':
+            Ipha = unwrap_phase(np.angle(true_phasorPf)) + np.random.random(img_foc.shape)*1e-10
+            dpha = unwrap_phase(np.angle(true_phasorPd)) + np.random.random(img_foc.shape)*1e-10
         else:
-            pup_f,_ = projection(ifft2(ifftshift(img_foc*np.exp(1j*pha_f))), self.support)
-            pup_d,_ = projection(ifft2(ifftshift(img_def*np.exp(1j*pha_d))), self.support)
+            raise NameError('No such method. Use "random" or "uniform"')
+        
+        ## initial guesses
+        
+        pup_f = unf_pup*np.exp(1j*Ipha)
+        pup_d = unf_pup*np.exp(1j*dpha) ## also guessing uniform
+        
         pup_f_ = abs(pup_f)
         pup_d_ = abs(pup_d)
         
         ## initial states
         plt.figure(figsize=(16,8))
         plt.subplot(121); plt.imshow(pup_f_,origin='lower'); plt.colorbar()
-        plt.title('Initial guess Amplitude')
+        plt.title('Init. Amp. guess (pupil)')
         plt.subplot(122); plt.imshow(pha_f,origin='lower'); plt.colorbar()
-        plt.title('Initial guess Phase'); plt.show()
+        plt.title('Init. Pha. guess (pupil)'); plt.show()
     
         ##
         i,itr = 0,0
@@ -948,10 +935,8 @@ class PR(object):
                 ## forcing only phase aberration
                 #-- i.e. another constraint on amplitude
                 if force_only_phase==True:
-                    ### now (temporarily) set to the true amplitude
-                    pup_f_amp = true_pup
                     pup_f_pha = np.angle(pup_f)
-                    pup_f = true_pup*np.exp(1j*pup_f_pha)
+                    pup_f = unf_pup*np.exp(1j*pup_f_pha)
                 
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc_f)-img_foc)**2)) / img_sum
