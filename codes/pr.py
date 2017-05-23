@@ -158,7 +158,9 @@ class PR(object):
                  support='circular',
                  true_foc=None,true_pup=None):
         """
-        Default to single-image case
+        Default to single-image case. In general,
+        error is assessed in 'amplitude' not 'intensity'
+        in the focal plane.
         
         Inputs
         - foc: np.2darray
@@ -635,7 +637,7 @@ class PR(object):
             init='random',cons_type='support',
             threshold=None,iterlim=2000,
             force_only_phase=False,
-            true_phasorP=None,true_phasorF=None):
+            true_phasorP=None):
         """
         Oversampling smoothness incorporating HIO.
         First guess is determined by the amplitude of 
@@ -677,48 +679,33 @@ class PR(object):
         ## initialize error and phase
         err = 1e10
         if init=='random':
-            pha = np.random.random(img.shape) * 2*np.pi
-        elif init=='uniform':
-            pha = np.ones(img.shape)
-            
-        ######### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        elif init=='test':
-            pha_p = np.angle(true_phasorP) + \
-                    np.random.random(img.shape)*1e-10
-            pha_f = np.angle(true_phasorF) + \
-                    np.random.random(img.shape)*1e-10
-        else:
-            raise NameError('No such method. Use "random" or "uniform"')
-    
-        ## initial guess
-        if force_only_phase==True:
-            # pup = true_pup*np.exp(1j*pha)
-            #-------------------------------------   !!!!!! initial guess in image plane !!!
             coeff = np.random.random(35)
             zerI = Zernike(coeff=coeff,Npix=self.npix)
             Ipha = zerI.crCartAber(plot=False)
             Ipha = pad_array(Ipha,self.N_pix,pad=0)
             pup = true_pup*np.exp(1j*Ipha)
+        elif init=='uniform':
+            pup = true_pup*np.exp(1j*np.ones(img.shape))
+        
+        elif init=='test':
+            Ipha = np.angle(true_phasorP) + np.random.random(img.shape)*1e-10
         else:
-            pup,_ = projection(ifft2(ifftshift(img*np.exp(1j*pha))), self.support)
+            raise NameError('No such method. Use "random" or "uniform"')
+            
         pup_ = abs(pup)
     
         ## initial states
         plt.figure(figsize=(16,8))
         plt.subplot(121); plt.imshow(pup_,origin='lower')
-        plt.title('Initial guess Amplitude')
-        plt.subplot(122); plt.imshow(Ipha,origin='lower') #################### changed here
-        plt.title('Initial Phase'); plt.show()
+        plt.title('Init. Amp. guess (pupil)')
+        plt.subplot(122); plt.imshow(Ipha,origin='lower')
+        plt.title('Init. Pha. guess (pupil)'); plt.show()
     
         #------------------------------
         i,itr = 0,0
         img_sum = np.sum(img)
     
         err_list,err_pup = [],[]
-        ########### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        pha_sum = np.sum(pha_p)
-        err_pha_pup = []
-        ######
         
         if threshold is None: 
             ## iteration limit
@@ -748,8 +735,7 @@ class PR(object):
                 ## forcing only phase aberration
                 #-- i.e. another constraint on amplitude
                 if force_only_phase==True:
-                    ### now (temporarily) set to the true amplitude
-                    pup_amp = true_pup
+                    pup_amp = np.invert(np.invert(self.support)*1)
                     pup_pha = np.angle(pup)
                     pup = true_pup*np.exp(1j*pup_pha)
                 
@@ -766,11 +752,6 @@ class PR(object):
                     print '        Error : {0:.2e}'.format(err)
         
                 err_list.append(err)
-            
-                ######### !!!!!!!!!!!!!!!!!
-                err_pha = np.sqrt(np.sum((np.angle(pup)-pha_p)**2))/pha_sum
-                err_pha_pup.append(err_pha)
-                #######
                 
                 if true_pup is not None:
                     err_p = np.sqrt(np.sum((abs(pup)-true_pup)**2)) / tpup_sum
@@ -789,7 +770,7 @@ class PR(object):
         print 'Final Error: {0:.2e}'.format(err)
         
         pup_proj,_ = projection(pup,self.support,cons_type=cons_type)
-        return pup, foc, err_list, pup_proj, err_pup, err_pha_pup
+        return pup, foc, err_list, pup_proj, err_pup
 
     
     def PD_ER_smoothing(self,defocus,alpha_par=None,
@@ -1018,6 +999,9 @@ class PR(object):
             return np.zeros(Npix=self.npix)
         elif self.supp == 'circular':
             return Idxcmask(Npix=self.npix)
+        elif isinstance(self.supp, np.ndarray) and self.supp.ndim==2:
+            print 'using user-provided support array'
+            return self.supp
         else:
             raise NameError('No such support type')
             
@@ -1240,7 +1224,7 @@ def plot_errlist(errlist,errpuplist=None,logy=False,loglog=True):
         if loglog==True:
             plt.xscale('log'); plt.yscale('log')
         plt.xlabel('Iteration (#)'); plt.ylabel('Rms error (fraction)')
-        plt.title('Error in focal plane')
+        plt.title('Amp. error in focal plane')
         
         plt.subplot(122)
         plt.plot(errpuplist,'b',lw=10)
@@ -1249,7 +1233,7 @@ def plot_errlist(errlist,errpuplist=None,logy=False,loglog=True):
         if loglog==True:
             plt.xscale('log'); plt.yscale('log')
         plt.xlabel('Iteration (#)'); plt.ylabel('Rms error (fraction)')
-        plt.title('Error in pupil plane')
+        plt.title('Amp. error in pupil plane')
         plt.show()
     
     else:
