@@ -88,10 +88,9 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     
     Parameters
     - defocus: float
-      Degree of defocusing. Defined as the effective 
-      focal point deviation from the focal point. 
-      Unit in fraction of aperture diameter.
-      Default is 10
+      Degree of defocusing. Defined as the rms aberration
+      in unit of wavelength. For example, defouces=1
+      defines an rms WFE of 2pi rad. ~ P-V of 14 rad.
       
     Returns
     - focused: list of np.2darray
@@ -103,7 +102,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     ## Zernike
     ### defocusing
     coeff3 = np.copy(coeff2)
-    coeff3[3] += defocus
+    coeff3[3] += defocus * 4*np.sqrt(15)/3*np.pi/Npix**2
     zerP = Zernike(coeff=coeff1,Npix=Npix)
     zerF = Zernike(coeff=coeff2,Npix=Npix)
     zerD = Zernike(coeff=coeff3,Npix=Npix)
@@ -526,6 +525,7 @@ class PR(object):
         err = 1e10
         
         #-- defocusing
+        defocus *= 4*np.sqrt(15)/3*np.pi/self.npix**2 ## conversion to Z-coeff
         coeff = [0]*15
         coeff[3] += defocus
         
@@ -792,10 +792,7 @@ class PR(object):
         
         Inputs
         - defocus: float
-          Degree of defocusing. Defined as the effective 
-          focal point deviation from the focal point. 
-          Unit in fraction of aperture diameter.
-          No default. Should be the same as the true inputs
+          Degree of defocusing. See `true_imgs_defocus`
           
         Parameters
         - alpha_par: list of numbers (length of 3)
@@ -843,6 +840,7 @@ class PR(object):
         #--- uniform pupil intensity
         unf_pup = np.invert(self.support)*1
         #-- defocusing
+        defocus *= 4*np.sqrt(15)/3*np.pi/self.npix**2 ## conversion to Z-coeff
         coeff = [0]*35
         coeff[3] += defocus
         
@@ -871,7 +869,6 @@ class PR(object):
             raise NameError('No such method. Use "random" or "uniform"')
         
         ## initial guesses
-        
         pup_f = unf_pup*np.exp(1j*Ipha)
         pup_d = unf_pup*np.exp(1j*dpha) ## also guessing uniform
         
@@ -882,7 +879,7 @@ class PR(object):
         plt.figure(figsize=(16,8))
         plt.subplot(121); plt.imshow(pup_f_,origin='lower'); plt.colorbar()
         plt.title('Init. Amp. guess (pupil)')
-        plt.subplot(122); plt.imshow(pha_f,origin='lower'); plt.colorbar()
+        plt.subplot(122); plt.imshow(Ipha,origin='lower'); plt.colorbar()
         plt.title('Init. Pha. guess (pupil)'); plt.show()
     
         ##
