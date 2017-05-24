@@ -78,7 +78,7 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
 
 def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
                       max_aberA=0.2,max_aberP=0.2,
-                      defocus=10):
+                      defocus=0.1):
     """
     Generate true images (both domains) defocused
     and at focus for a given size in combined Zernike modes
@@ -102,7 +102,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     ## Zernike
     ### defocusing
     coeff3 = np.copy(coeff2)
-    coeff3[3] += defocus * 4*np.sqrt(15)/3*np.pi/Npix**2
+    coeff3[3] += (defocus * 4*np.sqrt(15)/3*np.pi)
     zerP = Zernike(coeff=coeff1,Npix=Npix)
     zerF = Zernike(coeff=coeff2,Npix=Npix)
     zerD = Zernike(coeff=coeff3,Npix=Npix)
@@ -114,7 +114,9 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     
     #-- maximum
     Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
-    Ppha *= max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
+    convf = max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
+    Ppha *= convf
+    Dpha *= convf
     
     Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
@@ -525,7 +527,7 @@ class PR(object):
         err = 1e10
         
         #-- defocusing
-        defocus *= 4*np.sqrt(15)/3*np.pi/self.npix**2 ## conversion to Z-coeff
+        defocus *= 4*np.sqrt(15)/3*np.pi ## conversion to Z-coeff
         coeff = [0]*15
         coeff[3] += defocus
         
@@ -829,7 +831,8 @@ class PR(object):
             raise NameError('Please provide the Fourier domain images \
                              by calling the object')
         ## smoothing functions
-        chunk, filter_gauss = self._gen_alpha(alpha_par,iterlim)
+        chunk, filter_gauss = self._gen_alpha([self.N_pix,self.npix/4,10],iterlim)
+        
         #--------------------------
         ## intensity to amplitude
         img_foc = np.sqrt(foc_foc)
@@ -840,7 +843,7 @@ class PR(object):
         #--- uniform pupil intensity
         unf_pup = np.invert(self.support)*1
         #-- defocusing
-        defocus *= 4*np.sqrt(15)/3*np.pi/self.npix**2 ## conversion to Z-coeff
+        defocus *= 4*np.sqrt(15)/3*np.pi ## conversion to Z-coeff
         coeff = [0]*35
         coeff[3] += defocus
         
@@ -862,7 +865,7 @@ class PR(object):
             dpha = zerD.crCartAber(plot=False)
             dpha = pad_array(dpha,self.N_pix,pad=0)
         
-        if init=='test':
+        elif init=='test':
             Ipha = unwrap_phase(np.angle(true_phasorPf)) + np.random.random(img_foc.shape)*1e-10
             dpha = unwrap_phase(np.angle(true_phasorPd)) + np.random.random(img_foc.shape)*1e-10
         else:
@@ -885,7 +888,7 @@ class PR(object):
         ##
         i,itr = 0,0
         img_sum = np.sum(img_foc)
-    
+        
         err_list,err_pup = [],[]
         if threshold is None: 
             ## iteration limit
@@ -901,8 +904,8 @@ class PR(object):
                 foc_f = fftshift(fft2(pup_f))
                 foc_d = fftshift(fft2(pup_d))
                 ## Fourier constraint
-                fo_f2 = img_foc * (foc_f/abs(foc_f))
-                fo_d2 = img_def * (foc_d/abs(foc_d))
+                fo_f2 = img_foc * np.exp(1j*(np.angle(foc_f)))#(foc_f/abs(foc_f))
+                fo_d2 = img_def * np.exp(1j*(np.angle(foc_d)))#(foc_d/abs(foc_d))
                 pup_f = ifft2(ifftshift(fo_f2)) 
                 pup_d = ifft2(ifftshift(fo_d2))
             
@@ -962,9 +965,9 @@ class PR(object):
             itr += 1
             
             ## maximal iteration
-            if smoo_in==True:
-                if i >= iterlim-200: break
-            elif i >= iterlim:
+            #if smoo_in==True:
+            #    if i >= iterlim-200: break
+            if i >= iterlim:
                 break
                 
         print '-----------------------'
