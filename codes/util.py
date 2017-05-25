@@ -8,6 +8,7 @@ import sys
 sys.path.append("../codes/")
 
 from zernike import *
+from skimage.restoration import unwrap_phase
 
 def read_fits(filepath):
     from astropy.utils.data import get_readable_fileobj
@@ -247,7 +248,7 @@ def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
     fit_Z = zern_exp(Npix,m=m,oversamp=oversamp)
     
     ## data
-    zer_reco = np.angle(Recon_phasor)
+    zer_reco = unwrap_phase(np.angle(Recon_phasor))
     if flip:
         zer_reco = np.fliplr(np.flipud(-zer_reco))
     
@@ -257,7 +258,7 @@ def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
     plt.figure(figsize=(10,7))
     
     if P_phasor is not None:
-        zer_corr = np.angle(P_phasor)
+        zer_corr = unwrap_phase(np.angle(P_phasor))
         fit_corr = fit_to_zerns(zer_corr,fit_Z,mask)
     
         plt.plot(range(1,15),fit_corr[1:], 'r-.+',label='True' ,ms=20,mew=3)
