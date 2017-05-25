@@ -4,6 +4,11 @@ Utility functions not directly relevant for computations.
 from __future__ import division
 import numpy as np
 
+import sys
+sys.path.append("../codes/")
+
+from zernike import *
+
 def read_fits(filepath):
     from astropy.utils.data import get_readable_fileobj
     from astropy.io import fits
@@ -162,3 +167,103 @@ def expand_array(array):
     ## centroid
     return shift(array,0.5)
 
+##################################################
+## Zernike decomposition                        ##
+#   Ref: https://github.com/david-hoffman/pyOTF ##
+##################################################
+def zern_exp(Npix,m=15,oversamp=2):
+    """
+    Expansion in Zernike modes.
+    Returns a 3-dimensional array in shape
+     m x Npix x Npix
+    
+    Parameters:
+    - m: integer
+      How many modes. Defaults to 15
+    
+    Options
+    - oversamp: integer
+      The oversampling. Should be the same as 
+      the data to be fitted.
+    """
+    def zern_padded(i,Npix=Npix,oversamp=oversamp):
+        coef = np.zeros(35)
+        coef[i-1] = 1
+        z = Zernike(coeff=coef,Npix=Npix/2/oversamp)
+        zz = z.crCartAber(plot=False)
+        Zz = pad_array(zz,Npix,pad=0)
+        return Zz
+    
+    return np.array([zern_padded(i) for i in range(1,m+1)])
+
+def fit_to_zerns(data, zerns, mask, **kwargs):
+    """
+    Least-square fitting for Zernike coefficients.
+    !!! Ignore the zeroth mode - piston !!!
+    !!!  since DC offset is not physically meaningful
+    
+    Inputs
+    - data, zerns: np.ndarrays
+      The image to be fitted and the Zernike-expansion.
+      See `zern_exp`
+    - mask: np.2darray
+      The ROI where the fitting is applied.
+      Normally it is the support
+    """
+    data2fit = data[mask]
+    zern2fit = zerns[:, mask].T
+    
+    ## least-square fitting. More robust than simple "dot-product"
+    coefs, _, _, _ = np.linalg.lstsq(zern2fit, data2fit, **kwargs)
+    return coefs
+
+def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
+                     oversamp=2,m=15,flip=False):
+    """
+    Wrap-up method for Zernike coefficient fitting
+    
+    Inputs
+    - obj: class object
+      The object storing the particular PR procedure
+    - Recon_phasor:
+      The phasor (complex) image of the reconstructed
+      pupil image
+      
+    Options
+    - P_phasor: 
+      The phasor (complex) image of the true pupil image
+      If provided, the resulting plot will juxtapose
+      thes 'true' coefficients with the reconstructed ones
+    - flip: boolean
+      Flip and reverse the phase. Used only when comparing
+      with true pupil image and in OSS
+    """
+    fit_corr=[]
+    
+    ## initialize
+    mask = np.invert(obj.support) # support=True
+    Npix = obj.N_pix
+    
+    fit_Z = zern_exp(Npix,m=m,oversamp=oversamp)
+    
+    ## data
+    zer_reco = np.angle(Recon_phasor)
+    if flip:
+        zer_reco = np.fliplr(np.flipud(-zer_reco))
+    
+    fit_reco = fit_to_zerns(zer_reco,fit_Z,mask)
+    
+    ## plot
+    plt.figure(figsize=(10,7))
+    
+    if P_phasor is not None:
+        zer_corr = np.angle(P_phasor)
+        fit_corr = fit_to_zerns(zer_corr,fit_Z,mask)
+    
+        plt.plot(range(1,15),fit_corr[1:], 'r-.+',label='True' ,ms=20,mew=3)
+    
+    plt.plot(range(1,15),fit_reco[1:], 'b-.x',label='Best-fit of recon.',ms=20,mew=3)
+    plt.xlim(0,15); plt.legend()
+    plt.xlabel('Mode (Noll)'); plt.ylabel('Relative strength (a.u.)')
+    
+    return fit_reco,fit_corr
