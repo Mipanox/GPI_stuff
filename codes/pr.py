@@ -848,8 +848,8 @@ class PR(object):
         #--- uniform pupil intensity
         unf_pup = np.invert(self.support)*1
         #-- defocusing
-        defocus *= 4*np.sqrt(15)/3*np.pi ## conversion to Z-coeff
-        coeff = [0]*35
+        defocus *= np.sqrt(15)/3*np.pi ## conversion to Z-coeff
+        coeff = [0.]*35
         coeff[3] += defocus
         
         zerD = Zernike(coeff=coeff,Npix=self.npix)
