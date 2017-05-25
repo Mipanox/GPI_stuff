@@ -593,8 +593,9 @@ class PR(object):
             pup_d_ref = abs(pup_d)*np.exp(1j*(pup_d_pha-Dpha))
             
             ## averaging
-            pup_f = (abs(pup_f)+abs(pup_d_ref))/2 * \
-                    np.exp(1j*((np.angle(pup_d_ref)+np.angle(pup_f))/2))
+            pup_f =           ( abs(pup_f)     +abs(pup_d_ref)     )/2 * \
+                        np.exp(1j*((unwrap_phase(np.angle(pup_f)) + \
+                                    unwrap_phase(np.angle(pup_d_ref))/2)))
             
             ## forcing only phase aberration
             #-- i.e. another constraint on amplitude
@@ -831,7 +832,10 @@ class PR(object):
             raise NameError('Please provide the Fourier domain images \
                              by calling the object')
         ## smoothing functions
-        chunk, filter_gauss = self._gen_alpha([self.N_pix,self.npix/4,10],iterlim)
+        if alpha_par is None:
+            chunk, filter_gauss = self._gen_alpha([self.N_pix,self.npix/4,10],iterlim)
+        else:
+            chunk, filter_gauss = self._gen_alpha(alpha_par,iterlim)
         
         #--------------------------
         ## intensity to amplitude
@@ -915,7 +919,8 @@ class PR(object):
                 
                 ## averaging
                 pup_f =           ( abs(pup_f)     +abs(pup_d_ref)     )/2 * \
-                        np.exp(1j*((np.angle(pup_f)+np.angle(pup_d_ref))/2))
+                        np.exp(1j*((unwrap_phase(np.angle(pup_f)) + \
+                                    unwrap_phase(np.angle(pup_d_ref))/2)))
             
                 ## ER
                 pup_f,mask = projection(pup_f,self.support,cons_type=cons_type)
