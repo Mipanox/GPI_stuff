@@ -82,6 +82,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     """
     Generate true images (both domains) defocused
     and at focus for a given size in combined Zernike modes
+    !!! CAUTION: never let the coeff to be exactly zeros
     
     Inputs & Parameters
      see descriptions in `true_imgs_defocus`
@@ -101,8 +102,9 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     """
     ## Zernike
     ### defocusing
-    coeff3 = np.copy(coeff2)
-    coeff3[3] += (defocus * 4*np.sqrt(15)/3*np.pi)
+    coeff3 = [0.]*35
+    #--- rms defocusing in rad
+    coeff3[3] += (defocus *np.sqrt(15)/3.*np.pi)
     zerP = Zernike(coeff=coeff1,Npix=Npix)
     zerF = Zernike(coeff=coeff2,Npix=Npix)
     zerD = Zernike(coeff=coeff3,Npix=Npix)
@@ -114,13 +116,12 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     
     #-- maximum
     Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
-    convf = max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
-    Ppha *= convf
-    Dpha *= convf
+    Ppha *= max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi     
     
     Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
-    Dpha += fullcmask(np.ones((Npix,Npix)))
+    #-- "defocusing"
+    Dpha += Ppha
     
     P_ = Pam_*np.exp(1j*Ppha)
     D_ = Pam_*np.exp(1j*Dpha)
