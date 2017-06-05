@@ -268,3 +268,64 @@ def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
     plt.xlabel('Mode (Noll)'); plt.ylabel('Relative strength (a.u.)')
     
     return fit_reco,fit_corr
+
+##################
+## Data related ##
+##################
+
+class data_manage(object):
+    """
+    Class for data handling.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from scipy.ndimage.interpolation import rotate
+    from astropy.io import fits
+    
+    def __init__(self,path,angle,clipsize):
+        ##
+        self.path = path
+        self.data = fits.open(path)[0].data
+        self.hdr  = fits.open(path)[0].header
+        
+        ##
+        self.angle = angle
+        self.clipsize = clipsize
+        
+    def rot_img(self,plot=True,pad=-100,
+                xlim=None,ylim=None,**kwargs):
+        """
+        Rotating image plane to align the axes
+        
+        Options:
+        - plot: boolean
+          If `True`, plot the images (before and after)
+          Can zoom in by specifying `xlim` and `ylim`
+        - pad: number
+          The value to pad the NaN values in the array
+          for the sake of interpolation
+        """
+        ## padding
+        self.data_pad = np.copy(self.data)
+        self.data_pad[np.isnan(self.data_pad)] = pad
+        
+        ## 
+        if self.angle != 0:
+            self.data_rot = rotate(self.data_pad,
+                                   angle=self.angle,
+                                   **kwargs)
+        else: 
+            self.data_rot = np.copy(self.data_pad)
+        
+        if plot==True:
+            plt.title('Original')
+            plt.imshow(self.data,origin='lower')
+            plt.colorbar(); plt.show()
+            
+            plt.title('Rotated')
+            plt.imshow(self.data_rot,origin='lower')
+            if xlim is not None:
+                plt.xlim(xlim); plt.ylim(ylim) 
+            plt.show()
+            
+        return self.data_rot
