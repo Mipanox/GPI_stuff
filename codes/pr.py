@@ -798,6 +798,7 @@ class PR(object):
     def PD_ER_smoothing(self,defocus,alpha_par=None,
                         init='random',cons_type='support',
                         threshold=None,iterlim=2000,
+                        level=1.,
                         true_phasorPf=None,true_phasorPd=None,
                         force_only_phase=False,
                         smoo_in=False):
@@ -821,6 +822,10 @@ class PR(object):
           The starting (largest) scale, the final (smallest) scale,
           and the number of steps at each scale.
           If `None` (default), taken to be [N_pix,1/N_pix,10]
+          
+        - level: float
+          Level of aberration for the initial guess.
+          Can be taken as the same as the max_aber level
           
         Options
         - smoo_in: boolean
@@ -874,8 +879,8 @@ class PR(object):
         Dpha = pad_array(Dpha,self.N_pix,pad=0)
         
         if init=='random' or init=='uniform':
-            if init=='random': coeff = np.random.random(35)            
-            else:              coeff = [0]*35
+            if init=='random': coeff = (np.random.random(35)*2-1) * level            
+            else:              coeff = [0.]*35
             ## phases
             zerI = Zernike(coeff=coeff,Npix=self.npix)
             Ipha = zerI.crCartAber(plot=False)
@@ -884,7 +889,7 @@ class PR(object):
             coefd = np.copy(coeff)
             coefd[3] += defocus 
             zerd = Zernike(coeff=coefd,Npix=self.npix)
-            dpha = zerD.crCartAber(plot=False)
+            dpha = zerd.crCartAber(plot=False)
             dpha = pad_array(dpha,self.N_pix,pad=0)
         
         elif init=='test':
