@@ -78,7 +78,8 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
 
 def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
                       max_aberA=0.2,max_aberP=0.2,
-                      defocus=0.1):
+                      defocus=0.1,
+                      noise_level=0.):
     """
     Generate true images (both domains) defocused
     and at focus for a given size in combined Zernike modes
@@ -148,7 +149,23 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     F  = Famp**2
     Fd = D_da**2
     
-    ## focused
+    ## noise only in measured PSF
+    #-- fraction of the peak
+    Fpeak  = np.max(F)
+    Fdpeak = np.max(Fd)
+    gau_nF = abs(Fpeak *np.random.randn(Npix,Npix)*noise_level)
+    gau_nD = abs(Fdpeak*np.random.randn(Npix,Npix)*noise_level)
+    
+    F  += gau_nF
+    Fd += gau_nD
+    
+    Famp  = np.sqrt(F)
+    Fdamp = np.sqrt(Fd)
+    
+    F_  = Famp * F_/abs(F_)
+    F_d = Fdamp* F_d/abs(F_d)
+    
+    ## 
     focused = [P,P_,F,F_]
     defocused = [D,D_,Fd,F_d]
     
