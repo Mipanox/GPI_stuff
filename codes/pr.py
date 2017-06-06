@@ -742,7 +742,11 @@ class PR(object):
         #------------------------------
         i,itr = 0,0
         img_sum = np.sum(img)
-    
+        
+        ### normalization
+        img_int_sum = np.sum(image)
+        pup_int_sum = img_int_sum/self.N_pix**2 # unnormalized DFT parseval
+        
         err_list,err_pup = [],[]
         
         if threshold is None: 
@@ -756,9 +760,12 @@ class PR(object):
             
             ## steps
             for j in range(chunk):
+                ### normalization; since power conserves "square" thus the sqrt
+                pup *= (np.sqrt(pup_int_sum)/np.sqrt(np.sum(abs(pup)**2))) 
                 pup_old = pup
                 
                 foc = fftshift(fft2(pup))
+                
                 ## Fourier constraint, update 'inside support'
                 fo2 = img * (foc/abs(foc))
                 pup = ifft2(ifftshift(fo2))
@@ -775,7 +782,7 @@ class PR(object):
                 if force_only_phase==True:
                     pup_pha = np.angle(pup)
                     pup = unf_pup*np.exp(1j*pup_pha)
-                
+                    
                 ## error (mag) computed in focal plane
                 err_ =  np.sqrt(np.sum((abs(foc)-img)**2)) / img_sum
                 if err_ < err:
