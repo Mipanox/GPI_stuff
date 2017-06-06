@@ -360,15 +360,27 @@ class data_manage(object):
     from scipy.ndimage.interpolation import rotate
     from astropy.io import fits
     
-    def __init__(self,path,angle,clipsize):
+    def __init__(self,path,angle,cube=False):
         ##
         self.path = path
-        self.data = fits.open(path)[0].data
-        self.hdr  = fits.open(path)[0].header
+        if cube==False:
+            self.data = fits.open(path)[0].data
+            self.hdr  = fits.open(path)[0].header
+        else:
+            self.data = fits.open(path)[1].data
+            self.hdr  = fits.open(path)[1].header
         
         ##
-        self.angle = angle
-        self.clipsize = clipsize
+        self.angle = angle        
+    
+    def __call__(self,wavelength):
+        wvl_ref = self.hdr['CRVAL3']
+        wvl_stp = self.hdr['CD3_3']
+        
+        ## the closest slice
+        idx = int((wavelength-wvl_ref)/wvl_stp)
+        
+        self.data_slc = self.data[idx]
         
     def rot_img(self,plot=True,pad=-100,
                 xlim=None,ylim=None,**kwargs):
@@ -384,8 +396,15 @@ class data_manage(object):
           for the sake of interpolation
         """
         ## padding
-        self.data_pad = np.copy(self.data)
-        self.data_pad[np.isnan(self.data_pad)] = pad
+        if self.data.ndim==3:
+            data_ori      = np.copy(self.data_slc)
+            self.data_pad = np.copy(self.data_slc)
+            self.data_pad[np.isnan(self.data_pad)] = pad
+            
+        else:        
+            data_ori      = np.copy(self.data)
+            self.data_pad = np.copy(self.data)
+            self.data_pad[np.isnan(self.data_pad)] = pad
         
         ## 
         if self.angle != 0:
@@ -397,7 +416,7 @@ class data_manage(object):
         
         if plot==True:
             plt.title('Original')
-            plt.imshow(self.data,origin='lower')
+            plt.imshow(data_ori,origin='lower')
             plt.colorbar(); plt.show()
             
             plt.title('Rotated')
