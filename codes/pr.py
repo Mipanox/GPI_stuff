@@ -213,7 +213,14 @@ class PR(object):
         """
         
         self.N_pix = foc.shape[0]
-        self.npix  = self.N_pix / oversamp / 2 # original size
+        npix_tmp = int(self.N_pix / oversamp / 2) # original size
+        if npix_tmp%2:
+            print 'Down-sampled array dimension is not even: {0} pix'.format(npix_tmp)
+            self.npix = npix_tmp + 1
+            overs_new = self.N_pix/2/self.npix
+            print ' Changed to nearest oversamp: {0:.2f} that gives even-sized arrays'.format(overs_new)
+        
+        else: self.npix  = npix_tmp
         
         ## images
         self.foc_ = foc
