@@ -208,7 +208,7 @@ def ctr_mask(array,center,size,
     arr[mask] = 0
     return arr, mask
 
-def clipping(array,Npix,center,size,**kwargs):
+def clipping(array,Npix,center,size,allpos=True,**kwargs):
     """
     Clipping the array according to Npix 
     and specified center position
@@ -217,6 +217,12 @@ def clipping(array,Npix,center,size,**kwargs):
     Parameters:
     - Npix: integer
       Should be even. The final desired dimension of the array
+      
+    Options:
+    - allpos: boolean
+      Force negatively-valued pixels to be zero
+      In normal cases this should be True as negative intensity
+      is not physical
     """
     if Npix%2: raise ValueError('Npix should be even')
     arr = np.copy(array)
@@ -235,6 +241,9 @@ def clipping(array,Npix,center,size,**kwargs):
                   int(cty-size/2):int(cty+size/2)]
     #-- then pad it with zeros
     padded = pad_array(temp,Npix,pad=0)
+    
+    if allpos==True:
+        padded[padded<0] = 0.
     return padded
 
 ##################################################

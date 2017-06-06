@@ -335,6 +335,8 @@ class PR(object):
         - iterlim: integer
           Maximum number of iterations
         """
+        true_pup = None
+        tpup_sum = None
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             print '         This is one-image process.'
@@ -419,6 +421,8 @@ class PR(object):
         Options
          see descriptions in `ER`
         """
+        true_pup = None
+        tpup_sum = None
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             print '         This is one-image process.'
@@ -532,6 +536,8 @@ class PR(object):
           [Not sure how to do this (forcing to be uniform)]
           [when true image is unknown yet]
         """
+        true_pup = None
+        tpup_sum = None
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             true_pup = np.sqrt(self.pup)
@@ -685,6 +691,8 @@ class PR(object):
          Note: due to the nature of scaling (alpha), 
          one cannot set threshold (keep it `None`)
         """
+        true_pup = None
+        tpup_sum = None
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             print '         This is one-image process.'
@@ -839,6 +847,8 @@ class PR(object):
           Do the gradual smoothing in all the image plane,
           including within the support or not.
         """
+        true_pup = None
+        tpup_sum = None
         if self.pup is not None:
             print 'Caution: Pupil image is not used for constraints.'
             
