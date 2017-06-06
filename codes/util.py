@@ -169,7 +169,7 @@ def expand_array(array):
     return shift(array,0.5)
 
 #############################
-def ctr_mask(array,center,size,
+def ctr_mask(array,size,center,
              shape='circular'):
     """ 
     Masking images given coordinates of the center
@@ -208,7 +208,7 @@ def ctr_mask(array,center,size,
     arr[mask] = 0
     return arr, mask
 
-def clipping(array,Npix,center,size,allpos=True,**kwargs):
+def clipping(array,Npix,size,center=None,allpos=True,**kwargs):
     """
     Clipping the array according to Npix 
     and specified center position
@@ -226,19 +226,29 @@ def clipping(array,Npix,center,size,allpos=True,**kwargs):
     """
     if Npix%2: raise ValueError('Npix should be even')
     arr = np.copy(array)
+        
+    # center
+    if center is None:
+        cty, ctx = (arr.shape[0]-1)/2.,(arr.shape[1]-1)/2.
+    else:
+        cty, ctx = center
     
+    center = cty,ctx
     ## masking
-    masked,_ = ctr_mask(arr,center,size,**kwargs)
+    masked,_ = ctr_mask(arr,size,center,**kwargs)
     
     #
     nx, ny = masked.shape
-    # center
-    cty, ctx = center
     
     ## clipping
     #-- obtain a small array first
-    temp = masked[int(ctx-size/2):int(ctx+size/2),
-                  int(cty-size/2):int(cty+size/2)]
+    if (size%2 and ctx-int(ctx)!=0) or \
+       (size%2==0 and ctx-int(ctx)==0):
+        temp = masked[int(ctx-size/2):int(ctx+size/2),
+                      int(cty-size/2):int(cty+size/2)]
+    else:
+        temp = masked[int(ctx-size/2):int(ctx+size/2)+1,
+                      int(cty-size/2):int(cty+size/2)+1]
     #-- then pad it with zeros
     padded = pad_array(temp,Npix,pad=0)
     
