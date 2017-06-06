@@ -268,7 +268,7 @@ def zern_exp(Npix,m=15,oversamp=2):
     def zern_padded(i,Npix=Npix,oversamp=oversamp):
         coef = np.zeros(35)
         coef[i-1] = 1
-        z = Zernike(coeff=coef,Npix=Npix/2/oversamp)
+        z = Zernike(coeff=coef,Npix=int(Npix/2/oversamp))
         zz = z.crCartAber(plot=False)
         Zz = pad_array(zz,Npix,pad=0)
         return Zz
@@ -339,9 +339,9 @@ def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
         zer_corr = unwrap_phase(np.angle(P_phasor))
         fit_corr = fit_to_zerns(zer_corr,fit_Z,mask)
     
-        plt.plot(range(1,15),fit_corr[1:], 'r-.+',label='True' ,ms=20,mew=3)
-    
-    plt.plot(range(1,15),fit_reco[1:], 'b-.x',label='Best-fit of recon.',ms=20,mew=3)
+        plt.plot(range(1,15+1),[np.nan]+list(fit_corr[1:]), 'r-.+',label='True' ,ms=20,mew=3)
+    ### Note: DC offset is neglected
+    plt.plot(range(1,15+1),[np.nan]+list(fit_reco[1:]), 'b-.x',label='Best-fit of recon.',ms=20,mew=3)
     plt.xlim(0,15); plt.legend()
     plt.xlabel('Mode (Noll)'); plt.ylabel('Relative strength (a.u.)')
     

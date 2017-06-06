@@ -761,8 +761,8 @@ class PR(object):
             ## steps
             for j in range(chunk):
                 ### normalization; since power conserves "square" thus the sqrt
-                pup *= (np.sqrt(pup_int_sum)/np.sqrt(np.sum(abs(pup)**2))) 
-                pup_old = pup
+                pup *= np.sqrt((pup_int_sum)/np.sum(abs(pup)**2)) 
+                pup_old = np.copy(pup)
                 
                 foc = fftshift(fft2(pup))
                 
