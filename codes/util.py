@@ -195,7 +195,7 @@ def ctr_mask(array,center,size,
     #-- circular
     if shape=='circular':
         x, y = np.ogrid[-ctx:nx-ctx,-cty:ny-cty]
-        mask = x*x + y*y > size**2
+        mask = x*x + y*y > (size/2)**2
     
     #-- square
     elif shape=='square':
@@ -231,8 +231,8 @@ def clipping(array,Npix,center,size,**kwargs):
     
     ## clipping
     #-- obtain a small array first
-    temp = masked[int(ctx-size/2)+1:int(ctx+size/2)+1,
-                  int(cty-size/2)+1:int(cty+size/2)+1]
+    temp = masked[int(ctx-size/2):int(ctx+size/2),
+                  int(cty-size/2):int(cty+size/2)]
     #-- then pad it with zeros
     padded = pad_array(temp,Npix,pad=0)
     return padded

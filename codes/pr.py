@@ -870,7 +870,7 @@ class PR(object):
         #--- uniform pupil intensity
         unf_pup = np.invert(self.support)*1
         #-- defocusing
-        defocus *= np.sqrt(15)/3*np.pi ## conversion to Z-coeff
+        defocus *= np.sqrt(15)/3.*np.pi ## conversion to Z-coeff
         coeff = [0.]*35
         coeff[3] += defocus
         
