@@ -168,6 +168,75 @@ def expand_array(array):
     ## centroid
     return shift(array,0.5)
 
+#############################
+def ctr_mask(array,center,size,
+             shape='circular'):
+    """ 
+    Masking images given coordinates of the center
+    and the desired size (see below)
+    
+    Parameters:
+    - size: float/integer
+      The radius (circular) or length of side (square)
+      Better be integer      
+    - center: tuple of integers
+      The pixel values of the center
+      
+    Options
+    - shape: 'circular' or 'square'
+      Shape of the mask. Default to be 'circular'
+    """
+    arr = np.copy(array)
+    ##
+    nx, ny = arr.shape
+    ## center
+    cty, ctx = center
+    
+    #-- circular
+    if shape=='circular':
+        x, y = np.ogrid[-ctx:nx-ctx,-cty:ny-cty]
+        mask = x*x + y*y > size**2
+    
+    #-- square
+    elif shape=='square':
+        x, y = np.meshgrid(np.arange(-ctx,nx-ctx),np.arange(-cty,ny-cty))
+        mask = np.logical_or(abs(x)>size,abs(y)>size)
+        
+    else: raise NameError('No such shape. Use "circular" or "square"')
+        
+    ##
+    arr[mask] = 0
+    return arr, mask
+
+def clipping(array,Npix,center,size,**kwargs):
+    """
+    Clipping the array according to Npix 
+    and specified center position
+    Call the `ctr_mask` method to mask out unwanted region
+    
+    Parameters:
+    - Npix: integer
+      Should be even. The final desired dimension of the array
+    """
+    if Npix%2: raise ValueError('Npix should be even')
+    arr = np.copy(array)
+    
+    ## masking
+    masked,_ = ctr_mask(arr,center,size,**kwargs)
+    
+    #
+    nx, ny = masked.shape
+    # center
+    cty, ctx = center
+    
+    ## clipping
+    #-- obtain a small array first
+    temp = masked[int(ctx-size/2)+1:int(ctx+size/2)+1,
+                  int(cty-size/2)+1:int(cty+size/2)+1]
+    #-- then pad it with zeros
+    padded = pad_array(temp,Npix,pad=0)
+    return padded
+
 ##################################################
 ## Zernike decomposition                        ##
 #   Ref: https://github.com/david-hoffman/pyOTF ##
