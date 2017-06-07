@@ -242,13 +242,12 @@ def clipping(array,Npix,size,center=None,allpos=True,**kwargs):
     
     ## clipping
     #-- obtain a small array first
-    if (size%2 and ctx-int(ctx)!=0) or \
-       (size%2==0 and ctx-int(ctx)==0):
-        temp = masked[int(ctx-size/2):int(ctx+size/2),
-                      int(cty-size/2):int(cty+size/2)]
-    else:
+    if (size%2 and ctx-int(ctx)==0):
         temp = masked[int(ctx-size/2):int(ctx+size/2)+1,
                       int(cty-size/2):int(cty+size/2)+1]
+    else:
+        temp = masked[int(ctx-size/2):int(ctx+size/2),
+                      int(cty-size/2):int(cty+size/2)]
     #-- then pad it with zeros
     padded = pad_array(temp,Npix,pad=0)
     
