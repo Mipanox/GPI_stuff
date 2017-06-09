@@ -105,7 +105,7 @@ def true_imgs_defocus(Npix,coeff1,coeff2,oversamp=1,
     ### defocusing
     coeff3 = [0.]*35
     #--- rms defocusing in rad
-    coeff3[3] += (defocus *np.sqrt(15)/3.*np.pi)
+    coeff3[3] += defocus
     zerP = Zernike(coeff=coeff1,Npix=Npix)
     zerF = Zernike(coeff=coeff2,Npix=Npix)
     zerD = Zernike(coeff=coeff3,Npix=Npix)
@@ -558,7 +558,6 @@ class PR(object):
         err = 1e10
         
         #-- defocusing
-        defocus *= 4*np.sqrt(15)/3*np.pi ## conversion to Z-coeff
         coeff = [0]*15
         coeff[3] += defocus
         
@@ -894,7 +893,6 @@ class PR(object):
         #--- uniform pupil intensity
         unf_pup = np.invert(self.support)*1
         #-- defocusing
-        defocus *= np.sqrt(15)/3.*np.pi ## conversion to Z-coeff
         coeff = [0.]*35
         coeff[3] += defocus
         

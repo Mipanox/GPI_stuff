@@ -1,6 +1,11 @@
 """
-Generator for Zernike polynomials (first 15)
+Generator for Zernike polynomials (first 35)
 Can either call from polar or Cartesian coordinates.
+
+The normalization choice (see below in `ZernikePolar`) actually
+corresponds to the equivalence between rms levels and the coefficients
+(see the notebook: 
+( https://nbviewer.jupyter.org/github/Mipanox/GPI_stuff/blob/master/notebooks/zerniketest2.ipynb)
 
 References
 - Wikipedia: https://en.wikipedia.org/wiki/Zernike_polynomials
