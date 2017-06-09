@@ -223,6 +223,8 @@ def clipping(array,Npix,size,center=None,allpos=True,**kwargs):
       Force negatively-valued pixels to be zero
       In normal cases this should be True as negative intensity
       is not physical
+       Note: should be False when applying to complex array
+        Otherwise it'd screw up all the things
     """
     if Npix%2: raise ValueError('Npix should be even')
     arr = np.copy(array)
@@ -248,12 +250,13 @@ def clipping(array,Npix,size,center=None,allpos=True,**kwargs):
     else:
         temp = masked[int(ctx-size/2):int(ctx+size/2),
                       int(cty-size/2):int(cty+size/2)]
+       
     #-- then pad it with zeros
     padded = pad_array(temp,Npix,pad=0)
     
     if allpos==True:
         padded[padded<0] = 0.
-    return padded
+    return padded#temp
 
 ##################################################
 ## Zernike decomposition                        ##
@@ -306,7 +309,7 @@ def fit_to_zerns(data, zerns, mask, **kwargs):
     return coefs
 
 def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
-                     oversamp=2,m=15,flip=False):
+                     oversamp=2,m=15,flip=False,forphase=True):
     """
     Wrap-up method for Zernike coefficient fitting
     
@@ -347,12 +350,19 @@ def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
     if P_phasor is not None:
         zer_corr = unwrap_phase(np.angle(P_phasor))
         fit_corr = fit_to_zerns(zer_corr,fit_Z,mask)
-    
+        if forphase==True:
+            fit_corr /= (2*np.pi)
         plt.plot(range(1,15+1),[np.nan]+list(fit_corr[1:]), 'r-.+',label='True' ,ms=20,mew=3)
     ### Note: DC offset is neglected
+    if forphase==True:
+        fit_reco /= (2*np.pi)
     plt.plot(range(1,15+1),[np.nan]+list(fit_reco[1:]), 'b-.x',label='Best-fit of recon.',ms=20,mew=3)
     plt.xlim(0,15); plt.legend()
-    plt.xlabel('Mode (Noll)'); plt.ylabel('Relative strength (a.u.)')
+    
+    if forphase==True:
+        plt.xlabel('Mode (Noll)'); plt.ylabel('rms level (of a wave)')
+    else:
+        plt.xlabel('Mode (Noll)'); plt.ylabel('rms level')
     
     return fit_reco,fit_corr
 

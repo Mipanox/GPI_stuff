@@ -12,7 +12,7 @@ from zernike import *
 from skimage.restoration import unwrap_phase
 
 def true_imgs(Npix,coeff1,coeff2,oversamp=1,
-              max_aberA=0.2,max_aberP=0.2,
+              max_aberA=None,max_aberP=None,
               noise_level=0.):
     """
     Generate true images (both domains)
@@ -41,8 +41,10 @@ def true_imgs(Npix,coeff1,coeff2,oversamp=1,
     Ppha = zerF.crCartAber(plot=False)
 
     #-- maximum
-    Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
-    Ppha *= max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
+    if max_aberA is not None:
+        Pam_ *= max_aberA/(np.max(Pamp)+1e-10)
+    if max_aberP is not None:
+        Ppha *= max_aberP/(np.max(Ppha)+1e-10) * 2*np.pi
     
     Pam_ += fullcmask(np.ones((Npix,Npix)))
     Ppha += fullcmask(np.ones((Npix,Npix)))
