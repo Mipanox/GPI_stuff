@@ -740,6 +740,7 @@ class PR(object):
         plt.subplot(122); plt.imshow(Ipha,origin='lower')
         plt.title('Init. Pha. guess (pupil)'); plt.show()
     
+        temp_best_pup = pup
         #------------------------------
         i,itr = 0,0
         img_sum = np.sum(img)
