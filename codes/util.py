@@ -308,8 +308,8 @@ def fit_to_zerns(data, zerns, mask, **kwargs):
     coefs, _, _, _ = np.linalg.lstsq(zern2fit, data2fit, **kwargs)
     return coefs
 
-def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
-                     oversamp=2,m=15,flip=False,forphase=True):
+def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,oversamp=2,
+                     m=15,flip=False,forphase=True,title=None):
     """
     Wrap-up method for Zernike coefficient fitting
     
@@ -363,6 +363,9 @@ def wrap_up_zern_fit(obj,Recon_phasor,P_phasor=None,
         plt.xlabel('Mode (Noll)'); plt.ylabel('rms level (of a wave)')
     else:
         plt.xlabel('Mode (Noll)'); plt.ylabel('rms level')
+    
+    if title is not None:
+        plt.title(title)
     
     return fit_reco,fit_corr
 
