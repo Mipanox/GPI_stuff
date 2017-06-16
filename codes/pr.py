@@ -10,6 +10,7 @@ import numpy as np
 from util import *
 from zernike import *
 from skimage.restoration import unwrap_phase
+from scipy.ndimage import zoom
 
 def true_imgs(Npix,coeff1,coeff2,oversamp=1,
               max_aberA=None,max_aberP=None,
@@ -213,13 +214,14 @@ class PR(object):
           Displayed when calling `plot_recon`
           
         """
-        
+        self.oversamp = oversamp
         self.N_pix = foc.shape[0]
         npix_tmp = int(self.N_pix / oversamp / 2) # original size
         if npix_tmp%2:
             print 'Down-sampled array dimension is not even: {0} pix'.format(npix_tmp)
             self.npix = npix_tmp + 1
             overs_new = self.N_pix/2/self.npix
+            self.oversamp = overs_new
             print ' Changed to nearest oversamp: {0:.2f} that gives even-sized arrays'.format(overs_new)
         
         else: self.npix  = npix_tmp
@@ -1038,8 +1040,14 @@ class PR(object):
         elif self.supp == 'circular':
             return Idxcmask(Npix=self.npix)
         elif isinstance(self.supp, np.ndarray) and self.supp.ndim==2:
-            print 'using user-provided support array'
-            return self.supp
+            print 'using user-provided support array; reshape to correct size...'
+            print 'CAUTION: The support is defined as 0 in support, 1 outside'
+            ## re-shape, interpolation
+            temp = zoom(self.supp, (self.N_pix/self.supp.shape[0])/2/self.oversamp)
+            ## convert to boolean
+            temp[temp>0.5]=1; temp[temp<0.5]=0
+            supt = temp.astype(bool)
+            return supt
         else:
             raise NameError('No such support type')
             
